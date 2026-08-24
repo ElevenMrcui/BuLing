@@ -38,12 +38,36 @@ export class TasksService {
   async publish(input: PublishTaskDto): Promise<TaskDTO> {
     const priority = input.priority ?? "mid";
     const initialStatus: TaskStatus = input.assignMode === "auto" ? "open" : "planning";
-    const assignees =
-      input.assignMode === "manual" && input.assigneeAgentId ? [input.assigneeAgentId] : [];
+
+    // 团队模式：校验团队 + 决定 teamOwnerAgentId（不填就取团队默认 owner），
+    // 并生成标准三步 plan：需求拆解 / 团队成员分工执行（待指派）/ 汇总提交前自查
+    let teamId: string | null = null;
+    let teamOwnerAgentId: string | null = null;
+    if (input.assignMode === "team") {
+      if (!input.teamId) throw new BadRequestException("team assign requires teamId");
+      const team = await this.prisma.team.findUnique({ where: { id: input.teamId } });
+      if (!team) throw new NotFoundException("team not found");
+      teamId = team.id;
+      teamOwnerAgentId = input.teamOwnerAgentId ?? team.ownerAgentId;
+      if (!team.memberAgentIds.includes(teamOwnerAgentId))
+        throw new BadRequestException("teamOwnerAgentId must be a member of the team");
+    }
+
+    const assignees: string[] =
+      input.assignMode === "manual" && input.assigneeAgentId ? [input.assigneeAgentId] :
+      input.assignMode === "team" && teamOwnerAgentId ? [teamOwnerAgentId] :
+      [];
+
     const plan: TaskStep[] =
       input.assignMode === "manual" && input.assigneeAgentId
         ? [{ title: "任务需求拆解", status: "active", agentId: input.assigneeAgentId }]
-        : [];
+        : input.assignMode === "team" && teamOwnerAgentId
+          ? [
+              { title: "需求拆解与关键信息收集", status: "active", agentId: teamOwnerAgentId },
+              { title: "团队成员分工执行", status: "pending", agentId: null },
+              { title: "汇总与联合评审前自查", status: "pending", agentId: teamOwnerAgentId },
+            ]
+          : [];
 
     const created = await this.prisma.task.create({
       data: {
@@ -55,6 +79,9 @@ export class TasksService {
         assignees,
         due: (input.due ?? "待定") + "截止",
         plan: plan as unknown as object,
+        assignMode: input.assignMode,
+        teamId,
+        teamOwnerAgentId,
       },
     });
     return toTaskDTO(created);
@@ -196,6 +223,9 @@ function toTaskDTO(t: Task): TaskDTO {
     pinned: t.pinned,
     due: t.due,
     plan: t.plan as unknown as TaskStep[],
+    assignMode: t.assignMode as TaskDTO["assignMode"],
+    teamId: t.teamId,
+    teamOwnerAgentId: t.teamOwnerAgentId,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };

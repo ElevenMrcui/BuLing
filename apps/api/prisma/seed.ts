@@ -102,6 +102,29 @@ async function main() {
     },
   });
 
+  await prisma.team.upsert({
+    where: { id: "team-launch" },
+    update: {},
+    create: {
+      id: "team-launch",
+      name: "新品发布协作组",
+      description: "负责发布节奏拆解、文案与视觉的一并交付",
+      ownerAgentId: "xingshu",
+      memberAgentIds: ["xingshu", "shiguang", "zhiyun"],
+    },
+  });
+  await prisma.team.upsert({
+    where: { id: "team-quality" },
+    update: {},
+    create: {
+      id: "team-quality",
+      name: "代码质量小组",
+      description: "代码审查 · 安全扫描 · 数据合规",
+      ownerAgentId: "mingjing",
+      memberAgentIds: ["mingjing", "chengsi"],
+    },
+  });
+
   const key = encryptApiKey("sk-ant-dev-only-example-token-1234");
   await prisma.provider.upsert({
     where: { id: "prov-anthropic" },

@@ -8,6 +8,7 @@
 
 export type TaskStatus = "open" | "planning" | "progress" | "review" | "done";
 export type Priority = "high" | "mid" | "low";
+export type AssignMode = "auto" | "manual" | "team";
 export type AgentStatus = "working" | "idle" | "offline";
 export type CollabPref = "auto" | "manual";
 export type Effort = "low" | "medium" | "high";
@@ -63,8 +64,19 @@ export interface TaskDTO {
   pinned: boolean;
   due: string;
   plan: TaskStep[];
+  assignMode: AssignMode;
+  teamId: string | null;
+  teamOwnerAgentId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TeamDTO {
+  id: string;
+  name: string;
+  description: string;
+  ownerAgentId: string;
+  memberAgentIds: string[];
 }
 
 export interface DocDTO {
@@ -106,8 +118,18 @@ export interface PublishTaskInput {
   requiredSkills: string[];
   priority?: Priority;
   due?: string;
-  assignMode: "auto" | "manual";
+  assignMode: AssignMode;
+  /** assignMode='manual' 时必填 */
   assigneeAgentId?: string;
+  /** assignMode='team' 时必填 */
+  teamId?: string;
+  /** assignMode='team' 时必填；不填默认取 team.ownerAgentId */
+  teamOwnerAgentId?: string;
+}
+
+/** 团队负责人给团队内某步骤指派人（R2 落地） */
+export interface TeamAssignStepInput {
+  agentId: string;
 }
 
 export interface ClaimTaskInput {

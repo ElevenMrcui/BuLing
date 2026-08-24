@@ -540,6 +540,24 @@
   .create-agent-card .plus-circle{ width:40px; height:40px; border-radius:50%; background: var(--neutral-soft); display:flex; align-items:center; justify-content:center; }
   .create-agent-card:hover .plus-circle{ background: var(--accent-soft-strong); }
 
+  /* ---- 团队卡片 ---- */
+  .team-owner{ display:flex; align-items:center; gap:8px; padding:9px 11px; border-radius:11px; background: var(--purple-soft); }
+  .team-owner b{ font-size:12.5px; font-weight:650; }
+  .team-owner .hint{ margin:0; font-size:11px; }
+  .team-owner .avatar{ width:24px; height:24px; font-size:12px; border-radius:7px; }
+  .team-members{ display:flex; flex-wrap:wrap; gap:6px; }
+  .team-member-chip{ display:inline-flex; align-items:center; gap:5px; padding:2px 8px 2px 3px; border-radius: var(--radius-pill); background: var(--neutral-soft); font-size:11.5px; }
+  .team-member-chip .avatar{ width:20px; height:20px; font-size:10px; border-radius:5px; }
+
+  /* ---- 团队模式条：任务详情顶部说明 + 任务卡上的小标签 ---- */
+  .team-mode-banner{ display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:12px; background: var(--purple-soft); margin-bottom:16px; }
+  .team-mode-banner .icon{ color: var(--purple); flex-shrink:0; }
+  .team-mode-banner b{ color: var(--purple); font-weight:650; }
+  .team-mode-tag{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:650; padding:1.5px 8px; border-radius: var(--radius-pill); background: var(--purple-soft); color: var(--purple); }
+  .team-mode-tag .icon{ width:11px; height:11px; }
+  .assign-inline{ margin-top:6px; display:flex; align-items:center; gap:6px; font-size:11.5px; }
+  .assign-inline select{ padding:3px 8px; border-radius:8px; background: var(--surface-sunken); border:1px solid var(--border); font: inherit; color: var(--ink); }
+
   /* ============ Task board ============ */
   .board{ display:grid; grid-template-columns: repeat(5, minmax(198px,1fr)); gap:14px; overflow-x:auto; padding-bottom:10px; }
   @media (max-width: 1400px){ .board{ grid-auto-columns: 78%; grid-auto-flow:column; grid-template-columns:none; } }
@@ -775,6 +793,7 @@
     <div class="nav-group-label">工作区</div>
     <button class="nav-item active" data-view="overview">{{ICON_HOME}}<span>工作台概览</span></button>
     <button class="nav-item" data-view="agents">{{ICON_PERSON}}<span>Agent 中心</span><span class="count" id="nav-count-agents">6</span></button>
+    <button class="nav-item" data-view="teams">{{ICON_USERS}}<span>团队</span><span class="count" id="nav-count-teams">2</span></button>
     <button class="nav-item" data-view="tasks">{{ICON_TRAY}}<span>任务</span><span class="count" id="nav-count-tasks">6</span></button>
     <button class="nav-item" data-view="publish-task">{{ICON_PLUS}}<span>发布任务</span></button>
     <button class="nav-item" data-view="docs">{{ICON_DOC}}<span>文档产出库</span></button>
@@ -872,7 +891,8 @@ document.body.innerHTML = document.body.innerHTML
   .replaceAll('{{ICON_SEARCH}}', ic('search'))
   .replaceAll('{{ICON_PLUS}}', ic('plus'))
   .replaceAll('{{ICON_LAYERS}}', ic('layers'))
-  .replaceAll('{{ICON_MODEL}}', ic('model'));
+  .replaceAll('{{ICON_MODEL}}', ic('model'))
+  .replaceAll('{{ICON_USERS}}', ic('users'));
 </script>
 
 <script>
@@ -1011,6 +1031,20 @@ const EFFORT_META = {
 };
 const REJECT_DOWNWEIGHT_THRESHOLD = 2;
 
+/* 团队：与自主认领机制并列的第二种任务组织方式。
+   自主认领 = 任务大厅里谁想做谁认领；
+   团队模式 = 发布任务时选定团队 + 团队负责人，由负责人给团队成员指派步骤、汇总提交评审。
+   两种模式共享同一条状态机与评审红线：完成后仍必须由 reviewer 人工批准，不因为团队负责人而绕过。 */
+let TEAMS = [
+  { id:'team-launch', name:'新品发布协作组', ownerAgentId:'xingshu',
+    memberAgentIds:['xingshu','shiguang','zhiyun'],
+    desc:'负责发布节奏拆解、文案与视觉的一并交付' },
+  { id:'team-quality', name:'代码质量小组', ownerAgentId:'mingjing',
+    memberAgentIds:['mingjing','chengsi'],
+    desc:'代码审查 · 安全扫描 · 数据合规' },
+];
+function teamById(id){ return TEAMS.find(t=>t.id===id); }
+
 let TASKS = [
   { id:'t1', title:'Q3 消费电子品类竞品分析报告', status:'open', priority:'high',
     desc:'覆盖3家核心竞品的定价策略、渠道打法与用户评价，产出可执行的对标建议。',
@@ -1019,6 +1053,7 @@ let TASKS = [
 
   { id:'t2', title:'新品发布会文案 + 落地页视觉', status:'progress', priority:'high',
     desc:'配合9月新品发布会，产出发布文案三版初稿与落地页首屏视觉方案，供市场团队定稿。',
+    assignMode:'team', teamId:'team-launch', teamOwnerAgentId:'xingshu',
     requiredSkills:['文案写作','UI设计'], due:'8月26日截止', assignees:['xingshu','shiguang','zhiyun'], progressPct:55,
     plan:[
       { title:'需求梳理与关键信息收集', status:'done', agentId:'xingshu' },
@@ -1149,7 +1184,8 @@ const TOPBAR_TEXT = {
   overview:{ title:'工作台概览', sub:()=> State.taskDetailId ? (taskById(State.taskDetailId)?.title || '任务详情')
     : `今天是 2026年8月24日 · ${AGENTS.filter(a=>a.status==='working').length} 个 Agent 正在工作` },
   agents:{ title:'Agent 中心', sub:()=> `共 ${AGENTS.length} 个 Agent · 自定义身份、技能与可挂载 Skill 模块` },
-  tasks:{ title:'任务', sub:()=> `${TASKS.filter(t=>t.status==='open').length} 个任务待领取 · Agent 可根据技能匹配自主认领` },
+  teams:{ title:'团队', sub:()=> `${TEAMS.length} 个团队 · 团队模式下由负责人给成员指派步骤、汇总提交评审` },
+  tasks:{ title:'任务', sub:()=> `${TASKS.filter(t=>t.status==='open').length} 个任务待领取 · Agent 可根据技能匹配自主认领，或走团队模式由负责人指派` },
   'publish-task':{ title:'发布任务', sub:()=> '描述目标，交给 Agent 自主认领或指定分配' },
   providers:{ title:'模型接入', sub:()=> `${PROVIDERS.filter(p=>p.enabled&&p.status==='connected').length} 个提供方已连接 · ${availableModels().length} 个模型可选` },
   docs:{ title:'文档产出库', sub:()=> `共 ${DOCS.length} 份 Agent 产出文档` },
@@ -1169,6 +1205,7 @@ function renderView(opts={}){
   const root = document.getElementById('view-root');
   if(State.view==='overview') root.innerHTML = renderOverview();
   else if(State.view==='agents') root.innerHTML = renderAgents();
+  else if(State.view==='teams') root.innerHTML = renderTeams();
   else if(State.view==='tasks') root.innerHTML = renderTasks();
   else if(State.view==='publish-task') root.innerHTML = renderPublishTask();
   else if(State.view==='providers') root.innerHTML = renderProviders();
@@ -1182,6 +1219,8 @@ function renderView(opts={}){
 function updateNavCounts(){
   document.getElementById('nav-count-agents').textContent = AGENTS.length;
   document.getElementById('nav-count-tasks').textContent = TASKS.filter(t=>t.status!=='done').length;
+  const tv = document.getElementById('nav-count-teams');
+  if(tv) tv.textContent = TEAMS.length;
   const pv = document.getElementById('nav-count-providers');
   if(pv) pv.textContent = PROVIDERS.length;
 }
@@ -1294,6 +1333,122 @@ function renderAgents(){
   return `
     <div class="toolbar">${filterChips}</div>
     <div class="agent-grid">${createCard}${cards}</div>`;
+}
+
+/* ============================================================
+   TEAMS —— 与自主认领并列的第二种组织方式
+   团队 = 一组 Agent + 一个负责人（也是 Agent）。发布任务时可选团队模式；
+   任务落到某团队后，只有该团队负责人能给步骤指派团队成员，全部完成后由
+   负责人"汇总提交评审"——评审仍然走原有红线，不因为团队负责人而绕过。
+============================================================ */
+function renderTeams(){
+  const createCard = `<div class="create-agent-card" id="create-team-card">
+      <div class="plus-circle">${ic('plus')}</div>
+      <div><b style="font-size:13px;">创建新团队</b><br><span style="font-size:11.5px;">选定负责人与成员</span></div>
+    </div>`;
+  const cards = TEAMS.map(t => {
+    const owner = agentById(t.ownerAgentId);
+    const members = t.memberAgentIds.map(id => agentById(id)).filter(Boolean);
+    const ownerBadge = owner ? `<div class="team-owner"><span class="lead-tag">${ic('users')}负责人</span>${avatarEl(owner)}<b>${esc(owner.name)}</b><span class="hint">${owner.role}</span></div>` : '';
+    const memberChips = members.map(a => `<span class="team-member-chip" title="${esc(a.name)}">${avatarEl(a)}<span>${esc(a.name)}</span></span>`).join('');
+    return `<div class="card agent-card" data-open-team="${t.id}">
+      <div class="head">
+        <div class="avatar" style="background:var(--purple-soft);color:var(--purple)">${ic('users')}</div>
+        <div style="flex:1;min-width:0"><b>${esc(t.name)}</b><div class="role">${esc(t.desc)}</div></div>
+        <span class="pill st-planning">${members.length} 人</span>
+      </div>
+      ${ownerBadge}
+      <div class="team-members">${memberChips}</div>
+    </div>`;
+  }).join('');
+  return `<div class="agent-grid">${createCard}${cards}</div>`;
+}
+
+let draftTeam = null;
+function openTeamDrawer(teamId){
+  const src = teamId ? teamById(teamId) : null;
+  draftTeam = src
+    ? { ...JSON.parse(JSON.stringify(src)), mode:'edit' }
+    : { id:'team-'+Date.now(), mode:'create', name:'', desc:'', ownerAgentId:null, memberAgentIds:[] };
+  const eligible = AGENTS.filter(a => a.status !== 'offline');
+  const memberChecks = eligible.map(a => `
+    <label class="toggle-row" style="cursor:pointer;">
+      <div class="meta">
+        ${avatarEl(a)}
+        <div><b>${esc(a.name)}</b><span>${esc(a.role)}</span></div>
+      </div>
+      <input type="checkbox" data-team-member="${a.id}" ${draftTeam.memberAgentIds.includes(a.id)?'checked':''}
+        style="width:18px;height:18px;">
+    </label>`).join('');
+  openModal(`
+    <div class="modal-head"><h3>${draftTeam.mode==='create'?'创建新团队':'编辑团队 · '+esc(draftTeam.name)}</h3><button class="btn-icon" data-close-modal>${ic('close')}</button></div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label class="field-label">团队名称</label><input class="input" id="tm-name" value="${esc(draftTeam.name)}" placeholder="例如：新品发布协作组"></div>
+      </div>
+      <div class="field"><label class="field-label">团队描述</label><textarea class="input" id="tm-desc" placeholder="这个团队负责什么？">${esc(draftTeam.desc||'')}</textarea></div>
+      <div class="field">
+        <label class="field-label">团队负责人</label>
+        <select class="input" id="tm-owner">
+          <option value="">— 请选择 —</option>
+          ${AGENTS.map(a => `<option value="${a.id}" ${draftTeam.ownerAgentId===a.id?'selected':''}>${esc(a.name)} · ${esc(a.role)}</option>`).join('')}
+        </select>
+        <div class="hint">团队负责人可以给团队成员指派任务步骤、汇总产出后提交评审；但**评审最终批准 / 打回仍走人工评审红线**，负责人不可绕过。</div>
+      </div>
+      <div class="field">
+        <label class="field-label">团队成员</label>
+        <div class="card" style="padding:4px 14px;">${memberChecks}</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      ${draftTeam.mode!=='create'? '<button class="btn btn-ghost" id="btn-delete-team" style="color:var(--danger);margin-right:auto">'+ic('trash')+'删除团队</button>' : ''}
+      <button class="btn btn-secondary" data-close-modal>取消</button>
+      <button class="btn btn-primary" id="btn-save-team">${ic('check')}${draftTeam.mode==='create'?'创建团队':'保存修改'}</button>
+    </div>`, 'wide');
+  wireTeamDrawer();
+}
+function wireTeamDrawer(){
+  const modal = document.getElementById('modal-container');
+  modal.addEventListener('change', (e) => {
+    if(e.target.id === 'tm-owner') draftTeam.ownerAgentId = e.target.value || null;
+    const memberCk = e.target.closest('[data-team-member]');
+    if(memberCk){
+      const id = memberCk.dataset.teamMember;
+      if(memberCk.checked){ if(!draftTeam.memberAgentIds.includes(id)) draftTeam.memberAgentIds.push(id); }
+      else { draftTeam.memberAgentIds = draftTeam.memberAgentIds.filter(x => x !== id); }
+    }
+  });
+  modal.addEventListener('input', (e) => {
+    if(e.target.id === 'tm-name') draftTeam.name = e.target.value;
+    if(e.target.id === 'tm-desc') draftTeam.desc = e.target.value;
+  });
+  modal.addEventListener('click', (e) => {
+    if(e.target.closest('#btn-save-team')){
+      const name = (draftTeam.name||'').trim();
+      if(!name){ document.getElementById('tm-name').focus(); showToast('shield', '请先填写团队名称'); return; }
+      if(!draftTeam.ownerAgentId){ showToast('shield', '请选择团队负责人'); return; }
+      // 负责人必须在成员里
+      if(!draftTeam.memberAgentIds.includes(draftTeam.ownerAgentId)){
+        draftTeam.memberAgentIds.unshift(draftTeam.ownerAgentId);
+      }
+      const clean = { id:draftTeam.id, name, desc:draftTeam.desc||'', ownerAgentId:draftTeam.ownerAgentId, memberAgentIds:draftTeam.memberAgentIds };
+      const idx = TEAMS.findIndex(t => t.id === clean.id);
+      if(idx > -1){ TEAMS[idx] = clean; showToast('check', clean.name+' 已更新'); }
+      else { TEAMS.push(clean); showToast('sparkle', clean.name+' 已创建'); }
+      closeModal();
+      if(State.view==='teams') renderView(); else updateNavCounts();
+      return;
+    }
+    if(e.target.closest('#btn-delete-team')){
+      const usedByTasks = TASKS.filter(t => t.teamId === draftTeam.id && t.status !== 'done').length;
+      if(usedByTasks > 0){ showToast('shield', '还有 '+usedByTasks+' 个进行中的任务在使用此团队，请先完成或改派'); return; }
+      TEAMS = TEAMS.filter(t => t.id !== draftTeam.id);
+      showToast('trash', draftTeam.name+' 已删除');
+      closeModal();
+      if(State.view==='teams') renderView(); else updateNavCounts();
+      return;
+    }
+  });
 }
 
 /* 统一的挂载卡片：不管来源是 builtin / local / market，同一份契约渲染同一种卡片外观
@@ -1869,13 +2024,16 @@ function taskCardHtml(t){
   // 未认领任务用紧急度条替代静态优先级标签（讨论结论：连续累积值取代人工写死的高/中/低）；
   // 一旦认领进入执行，紧急度不再有意义，改回展示静态优先级
   const priorityBadge = t.status==='open' ? '' : `<span class="pill ${pMeta.pillClass}" style="flex-shrink:0">${pMeta.label}</span>`;
+  const teamBadge = t.assignMode==='team' && t.teamId
+    ? `<span class="team-mode-tag" style="margin-left:0;">${ic('users')}团队 · ${esc(teamById(t.teamId)?.name || '')}</span>`
+    : '';
   return `<div class="card task-card" data-open-task="${t.id}">
     ${urgencyRail}
     <div style="display:flex;gap:8px;align-items:flex-start;justify-content:space-between;">
       <div class="title">${esc(t.title)}</div>
       ${priorityBadge}
     </div>
-    <div class="tags">${tags}</div>
+    <div class="tags">${tags}${teamBadge}</div>
     ${matchBlock}
   </div>`;
 }
@@ -1947,11 +2105,25 @@ function renderPlanHtml(task){
     const squadBadge = s.blocked && squadAgents.length>1
       ? `<div class="squad-badge"><div class="who">${squadAgents.map(a=>avatarEl(a)).join('')}</div><div class="text">已围绕此卡点临时组队 · ${squadAgents.map(a=>a.name).join(' + ')}</div></div>`
       : '';
+    // 团队模式下未指派 / 未激活的步骤：团队负责人可直接给团队成员指派
+    let teamAssign = '';
+    if(task.assignMode === 'team' && task.teamId && !agent && s.status !== 'done'){
+      const team = teamById(task.teamId);
+      if(team){
+        const opts = team.memberAgentIds.map(id => {
+          const a = agentById(id); if(!a) return '';
+          return `<option value="${a.id}">${esc(a.name)} · ${esc(a.role)}</option>`;
+        }).join('');
+        teamAssign = `<div class="assign-inline">${ic('users')}<span class="hint" style="margin:0;">团队负责人指派：</span>
+          <select data-team-assign="${task.id}|${idx}"><option value="">选择成员…</option>${opts}</select></div>`;
+      }
+    }
     return `<div class="plan-step ${s.status}">
       <div class="check">${s.status==='done'?ic('check'):'<span style="font-size:10px;font-weight:700">'+(idx+1)+'</span>'}</div>
       <div class="body">
         <div class="title">${esc(s.title)}</div>
         ${agent? `<div class="who">${avatarEl(agent)} ${agent.name} · ${agent.role}</div>` : `<div class="who">${ic('clock')} 待分配</div>`}
+        ${teamAssign}
         ${squadBadge}
         ${actions}
       </div>
@@ -2009,8 +2181,39 @@ function renderRosterHtml(assigneeIds){
 /* 临时协同机制的临时领队：不是固定角色，而是当前推进节点落在谁身上，谁就临时统筹——
    步骤流转到下一个人，领队标记自动跟着转移，任务结束后这个标记也随之消失。 */
 function currentLead(t){
+  // 团队模式的领队恒定 = 团队负责人；其它模式沿用"当前 active 步骤对应人 = 临时领队"
+  if(t.assignMode === 'team' && t.teamOwnerAgentId) return agentById(t.teamOwnerAgentId);
   const step = t.plan.find(s=>s.status==='active');
   return step && step.agentId ? agentById(step.agentId) : null;
+}
+/* 团队模式条：任务详情顶部展示团队 / 负责人 / 成员，明确"这是团队模式" */
+function renderTeamModeBanner(t){
+  if(t.assignMode !== 'team' || !t.teamId) return '';
+  const team = teamById(t.teamId);
+  if(!team) return '';
+  const owner = agentById(t.teamOwnerAgentId || team.ownerAgentId);
+  const memberChips = team.memberAgentIds.map(id => {
+    const a = agentById(id); if(!a) return '';
+    return `<span class="team-member-chip">${avatarEl(a)}<span>${esc(a.name)}</span></span>`;
+  }).join('');
+  return `<div class="team-mode-banner">
+    ${ic('users')}
+    <div style="flex:1;min-width:0;">
+      <b>团队模式 · ${esc(team.name)}</b>
+      <div class="hint" style="margin:2px 0 6px;">负责人 ${owner?esc(owner.name):'—'} 分配团队成员执行、汇总提交评审；评审仍走人工红线，不因此绕过。</div>
+      <div class="team-members">${memberChips}</div>
+    </div>
+  </div>`;
+}
+/* 团队模式汇总入口：当所有步骤都完成，团队负责人可以"汇总并提交评审"（推入 review 状态）。 */
+function renderTeamSummarize(t){
+  if(t.assignMode !== 'team' || t.status !== 'progress') return '';
+  const allDone = t.plan.length > 0 && t.plan.every(s => s.status === 'done');
+  if(!allDone) return '';
+  return `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+    <button class="btn btn-primary btn-sm" data-team-summarize="${t.id}">${ic('check')}汇总并提交评审</button>
+    <div class="hint" style="display:inline;margin-left:8px;">全部步骤已完成，团队负责人操作把任务推入待评审。</div>
+  </div>`;
 }
 /* 任务详情只有一份，不再区分"负责人/执行者/评审人"三套视角——规划、时间线、产出、
    评审操作、团队名单同屏展示，谁需要什么直接在这一屏里找，不用先决定"我现在扮演谁"。 */
@@ -2033,13 +2236,15 @@ function renderTaskDetail(t){
       </div>
     </div>
     <div style="font-size:13px;color:var(--ink-secondary);line-height:1.6;margin-bottom:20px;max-width:70ch;">${esc(t.desc)}</div>
+    ${renderTeamModeBanner(t)}
     <div class="detail-grid">
       <div>
         <div class="card panel">
-          <div class="panel-head"><h3>${ic('puzzle')}自动任务规划</h3>
-            ${lead? `<span class="lead-tag">${ic('users')}临时领队 · ${esc(lead.name)}</span>` : ''}
+          <div class="panel-head"><h3>${ic('puzzle')}${t.assignMode==='team'?'任务规划（团队负责人指派）':'自动任务规划'}</h3>
+            ${lead? `<span class="lead-tag">${ic('users')}${t.assignMode==='team'?'负责人':'临时领队'} · ${esc(lead.name)}</span>` : ''}
           </div>
           ${renderPlanHtml(t)}
+          ${renderTeamSummarize(t)}
         </div>
         <div class="card panel">
           <div class="panel-head"><h3>${ic('flow')}协作时间线</h3></div>
@@ -2180,12 +2385,30 @@ function renderPublishTask(){
         </div>
       </div>
       <div class="field"><label class="field-label">截止时间</label><input class="input" id="nt-due" placeholder="例如：9月10日"></div>
-      <div class="field" style="margin-bottom:0;">
+      <div class="field">
         <label class="field-label">分配方式</label>
         <div class="radio-card-group" id="nt-assign-group">
           <div class="radio-card selected" data-assign="auto"><b>${ic('sparkle')} 自动匹配领取</b><span>放入任务看板，由 Agent 自主认领</span></div>
           <div class="radio-card" data-assign="manual"><b>指定 Agent</b><span>直接分配给指定 Agent</span></div>
+          <div class="radio-card" data-assign="team"><b>${ic('users')} 团队模式</b><span>选定团队 + 负责人，由负责人分配团队成员执行、汇总提交评审</span></div>
         </div>
+      </div>
+      <div class="field" id="nt-team-fields" style="margin-bottom:0;display:none;">
+        <label class="field-label">团队与负责人</label>
+        <div class="field-row">
+          <div class="field" style="margin-bottom:0;">
+            <select class="input" id="nt-team">
+              <option value="">— 选择团队 —</option>
+              ${TEAMS.map(t => `<option value="${t.id}">${esc(t.name)}（${t.memberAgentIds.length} 人）</option>`).join('')}
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <select class="input" id="nt-team-owner" disabled>
+              <option value="">— 团队负责人 —</option>
+            </select>
+          </div>
+        </div>
+        <div class="hint">选择团队后，"团队负责人"下拉默认落到团队 owner，你也可以改选该团队内的其他成员为本任务的临时负责人。</div>
       </div>
     </div>
     <div style="max-width:640px;display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
@@ -2200,7 +2423,23 @@ function wirePublishTaskEvents(){
   }));
   document.querySelectorAll('[data-assign]').forEach(el=>el.addEventListener('click', ()=>{
     document.querySelectorAll('[data-assign]').forEach(o=>o.classList.toggle('selected', o===el));
+    const teamFields = document.getElementById('nt-team-fields');
+    if(teamFields) teamFields.style.display = el.dataset.assign === 'team' ? '' : 'none';
   }));
+  const teamSelect = document.getElementById('nt-team');
+  const ownerSelect = document.getElementById('nt-team-owner');
+  if(teamSelect && ownerSelect){
+    teamSelect.addEventListener('change', () => {
+      const team = teamById(teamSelect.value);
+      ownerSelect.innerHTML = '<option value="">— 团队负责人 —</option>' +
+        (team ? team.memberAgentIds.map(id => {
+          const a = agentById(id); if(!a) return '';
+          const sel = id === team.ownerAgentId ? ' selected' : '';
+          return `<option value="${a.id}"${sel}>${esc(a.name)} · ${esc(a.role)}</option>`;
+        }).join('') : '');
+      ownerSelect.disabled = !team;
+    });
+  }
   const field = document.getElementById('nt-skill-field');
   if(field) field.addEventListener('keydown', e=>{
     if(e.key==='Enter' || e.key===','){
@@ -2230,17 +2469,46 @@ function wirePublishTaskEvents(){
       if(overlap > bestScore){ bestScore = overlap; best = a; }
     });
     const score = Math.min(98, 78 + bestScore*7 + Math.floor(Math.random()*6));
+    // 团队模式：读取团队 + 负责人；plan 里的步骤先按标准三步生成，agentId 留空由负责人指派
+    let teamId = null, teamOwnerAgentId = null, teamOwner = null, team = null;
+    if(assignMode === 'team'){
+      teamId = document.getElementById('nt-team').value;
+      teamOwnerAgentId = document.getElementById('nt-team-owner').value;
+      team = teamId ? teamById(teamId) : null;
+      if(!team){ showToast('shield', '请先选择团队'); return; }
+      if(!teamOwnerAgentId){ showToast('shield', '请选择团队负责人'); return; }
+      teamOwner = agentById(teamOwnerAgentId);
+    }
     const task = {
-      id:'t-'+Date.now(), title, status: assignMode==='auto' ? 'open':'planning', priority,
+      id:'t-'+Date.now(), title,
+      status: assignMode==='auto' ? 'open' : 'planning',
+      priority,
       desc: document.getElementById('nt-desc').value.trim() || '暂无详细描述。',
-      requiredSkills: skills, due: due+'截止', assignees: assignMode==='auto'? [] : [best.id],
+      requiredSkills: skills, due: due+'截止',
+      assignees: assignMode==='auto' ? []
+               : assignMode==='team' ? [teamOwnerAgentId]
+               : [best.id],
       progressPct: 0, matchAgentId: best.id, matchScore: score,
-      plan: assignMode==='manual'? [{title:'任务需求拆解', status:'active', agentId:best.id}] : [],
-      logs: assignMode==='manual'? [{type:'system', text:'任务已直接分配给 '+best.name, time:'刚刚'}] : [],
+      assignMode, teamId, teamOwnerAgentId,
+      plan:
+        assignMode==='manual' ? [{title:'任务需求拆解', status:'active', agentId:best.id}] :
+        assignMode==='team' ? [
+          { title:'需求拆解与关键信息收集', status:'active', agentId:teamOwnerAgentId },
+          { title:'团队成员分工执行', status:'pending', agentId:null },
+          { title:'汇总与联合评审前自查', status:'pending', agentId:teamOwnerAgentId },
+        ] : [],
+      logs:
+        assignMode==='manual' ? [{type:'system', text:'任务已直接分配给 '+best.name, time:'刚刚'}] :
+        assignMode==='team' ? [{type:'system', text:'任务已交给团队「'+team.name+'」·负责人 '+teamOwner.name+'——由负责人分配团队成员执行', time:'刚刚'}] :
+        [],
       docs:[], openHours:0, pinned:false
     };
     TASKS.unshift(task);
-    showToast('sparkle', '任务「'+title+'」已发布'+(assignMode==='auto'?'，等待 Agent 自主领取':'，已分配给 '+best.name));
+    const toastMsg =
+      assignMode==='auto' ? '，等待 Agent 自主领取' :
+      assignMode==='team' ? '，已交给团队「'+team.name+'」·负责人 '+teamOwner.name :
+      '，已分配给 '+best.name;
+    showToast('sparkle', '任务「'+title+'」已发布'+toastMsg);
     newTaskSkills = [];
     switchView('tasks');
   });
@@ -2503,7 +2771,7 @@ function showToast(icon, text){
 ============================================================ */
 /* Make non-native clickable elements (div-based cards/chips) keyboard operable:
    focusable via Tab, and activatable via Enter/Space — required for visible-focus to mean anything. */
-const KEYBOARD_CLICKABLE_SELECTOR = '[data-open-agent],[data-open-task],[data-open-doc],[data-claim],[data-agent-filter],[data-collab-pref],[data-priority],[data-assign],[data-view-link],[data-action],[data-emoji],[data-module-toggle-card],[data-model],[data-effort],[data-wizard-jump],[data-provider-type]';
+const KEYBOARD_CLICKABLE_SELECTOR = '[data-open-agent],[data-open-team],[data-open-task],[data-open-doc],[data-claim],[data-agent-filter],[data-collab-pref],[data-priority],[data-assign],[data-view-link],[data-action],[data-emoji],[data-module-toggle-card],[data-model],[data-effort],[data-wizard-jump],[data-provider-type]';
 function makeKeyboardClickable(root){
   root.querySelectorAll(KEYBOARD_CLICKABLE_SELECTOR).forEach(el=>{
     if(el.tagName==='BUTTON' || el.tagName==='A' || el.tagName==='INPUT') return;
@@ -2543,6 +2811,8 @@ function wireViewEvents(){
     renderView();
   }));
   document.getElementById('create-agent-card')?.addEventListener('click', ()=>openAgentDrawer(null));
+  document.getElementById('create-team-card')?.addEventListener('click', ()=>openTeamDrawer(null));
+  document.querySelectorAll('[data-open-team]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); openTeamDrawer(el.dataset.openTeam); }));
   document.querySelectorAll('[data-complete-step]').forEach(el=>el.addEventListener('click', (e)=>{
     e.stopPropagation();
     const [taskId, idxStr] = el.dataset.completeStep.split('|');
@@ -2603,6 +2873,33 @@ function wireViewEvents(){
     step.squad = [step.agentId];
     t.logs.push({ type:'system', text:'「'+step.title+'」卡点已解除，临时攻坚小组自动解散', time:'刚刚' });
     showToast('check', '临时攻坚小组已解散');
+    renderView();
+  }));
+  // 团队模式：负责人给团队成员指派某个步骤
+  document.querySelectorAll('[data-team-assign]').forEach(el=>el.addEventListener('change', (e)=>{
+    e.stopPropagation();
+    const agentId = el.value; if(!agentId) return;
+    const [taskId, idxStr] = el.dataset.teamAssign.split('|');
+    const t = taskById(taskId); const idx = Number(idxStr); const step = t.plan[idx];
+    const agent = agentById(agentId); if(!step || !agent) return;
+    step.agentId = agentId;
+    if(step.status === 'pending' && !t.plan.some(x => x.status === 'active')) step.status = 'active';
+    if(!t.assignees.includes(agentId)) t.assignees.push(agentId);
+    if(t.status === 'planning') t.status = 'progress';
+    const owner = agentById(t.teamOwnerAgentId || '');
+    t.logs.push({ type:'system', text:(owner?owner.name+' ':'')+'（团队负责人）已把「'+step.title+'」指派给 '+agent.name, time:'刚刚' });
+    showToast('users', '「'+step.title+'」已指派给 '+agent.name);
+    renderView();
+  }));
+  // 团队模式：全部步骤完成后，负责人"汇总并提交评审"（推入 review）
+  document.querySelectorAll('[data-team-summarize]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const t = taskById(el.dataset.teamSummarize); if(!t) return;
+    if(!t.plan.every(s => s.status === 'done')){ showToast('shield', '还有未完成的步骤'); return; }
+    t.status = 'review';
+    const owner = agentById(t.teamOwnerAgentId || '');
+    t.logs.push({ type:'system', text:(owner?owner.name+' ':'')+'（团队负责人）已汇总产出并提交评审', time:'刚刚' });
+    showToast('check', '任务已汇总提交评审——等待评审人（人工）批准 / 打回');
     renderView();
   }));
   document.querySelectorAll('[data-approve-doc]').forEach(el=>el.addEventListener('click', (e)=>{

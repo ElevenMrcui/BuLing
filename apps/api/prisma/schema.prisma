@@ -73,26 +73,31 @@ enum Effort {
 // -------- tasks --------
 
 model Task {
-  id             String     @id @default(cuid())
-  title          String
-  description    String
-  status         TaskStatus @default(open)
-  priority       Priority   @default(mid)
-  requiredSkills String[]
-  assignees      String[]   // Agent.id[]（去范式，方便列表查询）
-  progressPct    Int        @default(0)
-  openHours      Int        @default(0) // 未认领时长；意愿累积输入
-  pinned         Boolean    @default(false)
-  due            String
-  plan           Json       // Step[] { title, status, agentId?, squad?, blocked?, light? }
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id               String     @id @default(cuid())
+  title            String
+  description      String
+  status           TaskStatus @default(open)
+  priority         Priority   @default(mid)
+  requiredSkills   String[]
+  assignees        String[]   // Agent.id[]（去范式，方便列表查询）
+  progressPct      Int        @default(0)
+  openHours        Int        @default(0) // 未认领时长；意愿累积输入
+  pinned           Boolean    @default(false)
+  due              String
+  plan             Json       // Step[] { title, status, agentId?, squad?, blocked?, light? }
+  assignMode       AssignMode @default(auto)
+  teamId           String?
+  teamOwnerAgentId String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
-  docs           Doc[]
-  events         CollaborationEvent[]
+  docs   Doc[]
+  events CollaborationEvent[]
+  team   Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([pinned, openHours])
+  @@index([teamId])
 }
 
 enum TaskStatus {
@@ -107,6 +112,26 @@ enum Priority {
   high
   mid
   low
+}
+
+enum AssignMode {
+  auto
+  manual
+  team
+}
+
+// 团队：与自主认领并列的第二种任务组织方式（详见 docs/协作机制设计.md § 1.1）
+// 团队负责人可给团队内任务的步骤指派人、汇总提交评审；但 review→done 仍走 review 模块红线，负责人无此权。
+model Team {
+  id             String   @id @default(cuid())
+  name           String
+  description    String   @default("")
+  ownerAgentId   String
+  memberAgentIds String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tasks Task[]
 }
 
 // -------- collaboration --------

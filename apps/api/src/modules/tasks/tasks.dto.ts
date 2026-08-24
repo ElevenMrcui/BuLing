@@ -1,5 +1,5 @@
 import { IsArray, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
-import type { Priority, PublishTaskInput, ClaimTaskInput } from "@buling/shared";
+import type { AssignMode, Priority, PublishTaskInput, ClaimTaskInput } from "@buling/shared";
 
 export class PublishTaskDto implements PublishTaskInput {
   @IsString() @MinLength(1) @MaxLength(200)
@@ -17,11 +17,20 @@ export class PublishTaskDto implements PublishTaskInput {
   @IsOptional() @IsString()
   due?: string;
 
-  @IsIn(["auto", "manual"])
-  assignMode!: "auto" | "manual";
+  @IsIn(["auto", "manual", "team"])
+  assignMode!: AssignMode;
 
+  /** assignMode='manual' 时必填 */
   @IsOptional() @IsString()
   assigneeAgentId?: string;
+
+  /** assignMode='team' 时必填 */
+  @IsOptional() @IsString()
+  teamId?: string;
+
+  /** assignMode='team' 时必填；不填默认取 team.ownerAgentId */
+  @IsOptional() @IsString()
+  teamOwnerAgentId?: string;
 }
 
 export class ClaimTaskDto implements ClaimTaskInput {
