@@ -2,8 +2,20 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>不令</title>
+<!-- PWA / 手机浏览器体验：颜色跟随浅/深色，可加到主屏，全屏无浏览器栏（iOS 需 Safari 手动"添加到主屏幕"）。
+     单文件原型没有 service worker，装到主屏后是"仅在线版"；R2 分发到 apps/web 时再补真正的 SW。 -->
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0d" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="不令">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="%23007aff"/><text x="32" y="44" font-family="-apple-system,SF Pro Text,Helvetica,Arial,sans-serif" font-size="34" font-weight="700" text-anchor="middle" fill="white">令</text></svg>'>
+<link rel="apple-touch-icon" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180"><rect width="180" height="180" rx="36" fill="%23007aff"/><text x="90" y="124" font-family="-apple-system,SF Pro Text,Helvetica,Arial,sans-serif" font-size="98" font-weight="700" text-anchor="middle" fill="white">令</text></svg>'>
+<link rel="manifest" href='data:application/manifest+json;charset=utf-8,{"name":"不令","short_name":"不令","description":"去中心化多智能体协作平台","start_url":".","display":"standalone","orientation":"portrait-primary","background_color":"%23f5f5f7","theme_color":"%23007aff","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22><rect width=%22512%22 height=%22512%22 rx=%22100%22 fill=%22%23007aff%22/><text x=%22256%22 y=%22350%22 font-family=%22-apple-system,SF Pro Text,Helvetica,Arial,sans-serif%22 font-size=%22280%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22white%22>令</text></svg>","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}'>
 <style>
   /* ============ Design tokens ============ */
   :root{
@@ -268,6 +280,8 @@
     font-size:11px; font-weight:600; color: var(--ink-tertiary);
     text-transform:uppercase; letter-spacing:0.04em;
     padding: 14px 12px 6px;
+    /* 纯文本标签，不接收点击——避免在窄屏抽屉里覆盖下方 nav-item */
+    pointer-events:none; user-select:none;
   }
   .nav-item{
     display:flex; align-items:center; gap:10px;
@@ -753,7 +767,7 @@
   .sidebar-scrim{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.38); z-index:39; opacity:0; pointer-events:none; transition: opacity .25s var(--ease); }
   .sidebar-scrim.open{ opacity:1; pointer-events:auto; }
   @media (max-width: 880px){
-    .sidebar{ position:fixed; left:-260px; box-shadow: var(--shadow-lg); transition: left .25s var(--ease); }
+    .sidebar{ position:fixed; left:-260px; box-shadow: var(--shadow-lg); transition: left .25s var(--ease); z-index:41; }
     .sidebar.open{ left:0; }
     .sidebar-scrim{ display:block; }
     .view{ padding: 20px 16px 50px; }
@@ -766,6 +780,37 @@
     .search-box{ display:none; }
     .menu-toggle{ display:flex !important; }
     .stat-grid{ grid-template-columns: repeat(2,1fr); }
+  }
+  /* 真机手机（≤640）：卡片单列 + 模态近全屏 + 表单单列 + 减小外边距 */
+  @media (max-width: 640px){
+    :root{ --radius-l: 14px; }
+    .view{ padding: 16px 14px 60px; }
+    .agent-grid{ grid-template-columns: 1fr; gap:12px; }
+    .stat-grid{ grid-template-columns: 1fr 1fr; gap:10px; }
+    .create-agent-card{ min-height:140px; padding:18px; }
+    .two-col{ gap:14px; }
+    .detail-grid{ gap:14px; }
+    .field-row{ flex-direction:column; gap:10px; }
+    .field-row > .field{ margin-bottom:0; }
+    .radio-card-group{ grid-template-columns:1fr !important; }
+    .board-col{ min-width:0; }
+    .overlay{ padding:0; align-items:flex-end; }
+    .modal{ max-width:100%; width:100%; max-height:94vh; height:94vh; border-radius: 18px 18px 0 0; }
+    .modal.wide{ max-width:100%; }
+    .modal-head{ padding:14px 16px; }
+    .modal-head h3{ font-size:15.5px; }
+    .modal-body{ padding:16px; }
+    .modal-foot{ padding:12px 16px; flex-wrap:wrap; row-gap:8px; }
+    .modal-foot .btn{ flex:1 1 auto; min-width:44%; }
+    .wizard-rail{ padding:12px 16px 2px; gap:0; }
+    .wizard-step span{ display:none; }
+    .wizard-step.active span{ display:inline; }
+    .wizard-line{ width:12px; margin:0 4px; }
+    /* 触控目标 ≥44px */
+    .nav-item, .btn, .filter-chip, .skill-tab{ min-height:40px; }
+    .btn-sm{ min-height:34px; }
+    /* 顶栏在窄屏只留一个主按钮，其他隐藏 */
+    .topbar-actions .btn.mobile-hide{ display:none; }
   }
 
   @media (prefers-reduced-motion: reduce){
@@ -3130,6 +3175,8 @@ document.querySelectorAll('.nav-item').forEach(el=>el.addEventListener('click', 
   State.taskDetailId = null;
   if(el.dataset.view==='publish-task') newTaskSkills = [];
   switchView(el.dataset.view);
+  // 窄屏（抽屉模式）导航后顺手收抽屉
+  if(matchMedia('(max-width: 880px)').matches) closeSidebar();
 }));
 document.getElementById('btn-mechanism').addEventListener('click', ()=>openModal(mechanismModalHtml(),'wide'));
 function openSidebar(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebar-scrim').classList.add('open'); }
