@@ -411,6 +411,28 @@
   .skill-upload-form .field-row{ gap:8px; }
   .mock-note{ display:flex; align-items:flex-start; gap:6px; font-size:11px; color: var(--ink-tertiary); line-height:1.6; padding:8px 2px; }
   .mock-note .icon{ width:12px; height:12px; margin-top:2px; flex-shrink:0; }
+
+  /* ---- 模型接入：提供方卡片 + 向导里按提供方分组的模型选择 ---- */
+  .provider-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap:16px; }
+  .provider-card{ padding:18px 20px; display:flex; flex-direction:column; gap:12px; }
+  .provider-card.is-disabled{ opacity:.62; }
+  .provider-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .provider-title{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .provider-title b{ font-size:14.5px; font-weight:650; }
+  .provider-meta{ display:flex; flex-direction:column; gap:6px; }
+  .provider-meta-row{ display:flex; align-items:center; gap:7px; font-size:11.5px; color: var(--ink-tertiary); }
+  .provider-meta-row .icon{ width:13px; height:13px; flex-shrink:0; }
+  .provider-meta-row .k{ width:58px; flex-shrink:0; }
+  .provider-meta-row code{ font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:11px; color: var(--ink-secondary); background: var(--surface-sunken); padding:2px 7px; border-radius:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .provider-models{ display:flex; flex-wrap:wrap; gap:6px; }
+  .provider-foot{ display:flex; align-items:center; gap:6px; padding-top:10px; border-top:1px solid var(--border); flex-wrap:wrap; }
+
+  .model-provider-group{ margin-bottom:14px; }
+  .model-provider-group:last-child{ margin-bottom:0; }
+  .model-provider-label{ display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:640; color: var(--ink-secondary); margin-bottom:8px; }
+  .model-provider-label .icon{ width:13px; height:13px; color: var(--ink-tertiary); }
+  .radio-card-group.model-group{ flex-wrap:wrap; }
+  .radio-card-group.model-group .radio-card{ flex: 1 1 180px; }
   .switch{ position:relative; width:40px; height:24px; flex-shrink:0; }
   .switch input{ opacity:0; width:100%; height:100%; margin:0; position:absolute; cursor:pointer; z-index:1; }
   .switch .track{ position:absolute; inset:0; background: var(--border-strong); border-radius:20px; transition: background .2s var(--ease); }
@@ -757,6 +779,9 @@
     <button class="nav-item" data-view="publish-task">{{ICON_PLUS}}<span>发布任务</span></button>
     <button class="nav-item" data-view="docs">{{ICON_DOC}}<span>文档产出库</span></button>
 
+    <div class="nav-group-label">配置</div>
+    <button class="nav-item" data-view="providers">{{ICON_MODEL}}<span>模型接入</span><span class="count" id="nav-count-providers">3</span></button>
+
     <div class="sidebar-foot">
     </div>
     <div>
@@ -831,6 +856,8 @@ const ICONS = {
   users: '<svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9.5" r="2.4"/><path d="M3.5 19c.8-3.3 3-5 5.5-5s4.7 1.7 5.5 5"/><path d="M15 14.5c2 .2 3.5 1.7 4.1 4.5"/></svg>',
   shield: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3.5 19 6v6c0 4.5-3 7.5-7 8.5-4-1-7-4-7-8.5V6Z"/><path d="m9 12 2 2 4-4"/></svg>',
   layers: '<svg class="icon" viewBox="0 0 24 24"><path d="m12 3.5 8.5 4.4L12 12.3 3.5 7.9Z"/><path d="m3.5 12 8.5 4.4 8.5-4.4M3.5 16.1 12 20.5l8.5-4.4"/></svg>',
+  model: '<svg class="icon" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 4v3M14 4v3M10 17v3M14 17v3M4 10h3M4 14h3M17 10h3M17 14h3"/></svg>',
+  plug: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/></svg>',
 };
 function ic(name){ return ICONS[name] || ''; }
 
@@ -844,7 +871,8 @@ document.body.innerHTML = document.body.innerHTML
   .replaceAll('{{ICON_MENU}}', ic('menu'))
   .replaceAll('{{ICON_SEARCH}}', ic('search'))
   .replaceAll('{{ICON_PLUS}}', ic('plus'))
-  .replaceAll('{{ICON_LAYERS}}', ic('layers'));
+  .replaceAll('{{ICON_LAYERS}}', ic('layers'))
+  .replaceAll('{{ICON_MODEL}}', ic('model'));
 </script>
 
 <script>
@@ -925,11 +953,59 @@ let AGENTS = [
     stats:{ tasksDone:21, avgScore:4.75, collabs:13 },
     trace:{ delta:-6, label:'较久未接触此类任务' }, recentRejects:2 },
 ];
-const MODEL_META = {
-  haiku:  { label:'Haiku',  hint:'轻量快速 · 适合机械性/高频小任务' },
-  sonnet: { label:'Sonnet', hint:'均衡通用 · 大多数协作角色的默认选择' },
-  opus:   { label:'Opus',   hint:'深度推理 · 适合安全把关、复杂判断类角色' },
+/* AI API 模型接入：Agent 的"底层模型"不再是写死的三个选项，而是来自用户配置的模型服务
+   （API 提供方）。一个提供方 = 一套 {类型, Base URL, API Key, 该服务暴露的模型列表}。
+   只有"已启用且连接正常"的提供方，其模型才会出现在 Agent 创建向导的模型选择里。 */
+const PROVIDER_TYPE_META = {
+  anthropic:  { label:'Anthropic',   hint:'Claude 系列官方 API', tone:'accent' },
+  openai:     { label:'OpenAI',      hint:'GPT 系列官方 API', tone:'success' },
+  compatible: { label:'OpenAI 兼容', hint:'兼容 OpenAI 协议的服务 / 自建网关 / 本地推理', tone:'purple' },
 };
+/* 新增提供方时"测试连接"用的模拟发现结果：按类型返回一批候选模型。原型演示，不真的请求。 */
+const SAMPLE_DISCOVERY = {
+  anthropic:  [ {label:'Claude Opus 5', hint:'深度推理', ctx:'200K'}, {label:'Claude Sonnet 5', hint:'均衡通用', ctx:'200K'}, {label:'Claude Haiku 4.5', hint:'轻量快速', ctx:'200K'} ],
+  openai:     [ {label:'GPT-4o', hint:'多模态通用', ctx:'128K'}, {label:'GPT-4o mini', hint:'低成本高频', ctx:'128K'} ],
+  compatible: [ {label:'（连接后由服务返回）', hint:'实际模型以服务响应为准', ctx:'—'} ],
+};
+let PROVIDERS = [
+  { id:'prov-anthropic', name:'Anthropic 官方', type:'anthropic',
+    baseUrl:'https://api.anthropic.com', apiKeyMasked:'sk-ant-••••••••4f2a',
+    enabled:true, status:'connected',
+    models:[
+      { id:'haiku',  label:'Claude Haiku 4.5', hint:'轻量快速 · 适合机械性/高频小任务', ctx:'200K' },
+      { id:'sonnet', label:'Claude Sonnet 5',  hint:'均衡通用 · 大多数协作角色的默认选择', ctx:'200K' },
+      { id:'opus',   label:'Claude Opus 5',    hint:'深度推理 · 适合安全把关、复杂判断类角色', ctx:'200K' },
+    ] },
+  { id:'prov-openai', name:'OpenAI', type:'openai',
+    baseUrl:'https://api.openai.com/v1', apiKeyMasked:'sk-••••••••9c1d',
+    enabled:true, status:'connected',
+    models:[
+      { id:'gpt-4o',      label:'GPT-4o',      hint:'多模态通用', ctx:'128K' },
+      { id:'gpt-4o-mini', label:'GPT-4o mini', hint:'低成本高频', ctx:'128K' },
+    ] },
+  { id:'prov-local', name:'本地推理网关', type:'compatible',
+    baseUrl:'http://localhost:11434/v1', apiKeyMasked:'（无需密钥）',
+    enabled:false, status:'untested',
+    models:[
+      { id:'qwen2.5-72b', label:'Qwen2.5 72B', hint:'本地部署 · 数据不出内网', ctx:'32K' },
+    ] },
+];
+const PROVIDER_STATUS_META = {
+  connected:{ label:'已连接', pillClass:'st-working' },
+  untested: { label:'未测试', pillClass:'st-idle' },
+  error:    { label:'连接失败', pillClass:'st-high' },
+};
+function providerById(id){ return PROVIDERS.find(p=>p.id===id); }
+/* 只有"启用 + 连接正常"的提供方，其模型才对 Agent 可选。 */
+function availableModels(){
+  const out = [];
+  PROVIDERS.forEach(p=>{ if(p.enabled && p.status==='connected') p.models.forEach(m=> out.push({ key:m.id, label:m.label, hint:m.hint, ctx:m.ctx, providerId:p.id, providerName:p.name })); });
+  return out;
+}
+function modelByKey(key){
+  for(const p of PROVIDERS){ const m = p.models.find(x=>x.id===key); if(m) return { ...m, providerName:p.name, providerId:p.id }; }
+  return null;
+}
 const EFFORT_META = {
   low:{ label:'低' }, medium:{ label:'中' }, high:{ label:'高' },
 };
@@ -1075,6 +1151,7 @@ const TOPBAR_TEXT = {
   agents:{ title:'Agent 中心', sub:()=> `共 ${AGENTS.length} 个 Agent · 自定义身份、技能与可挂载 Skill 模块` },
   tasks:{ title:'任务', sub:()=> `${TASKS.filter(t=>t.status==='open').length} 个任务待领取 · Agent 可根据技能匹配自主认领` },
   'publish-task':{ title:'发布任务', sub:()=> '描述目标，交给 Agent 自主认领或指定分配' },
+  providers:{ title:'模型接入', sub:()=> `${PROVIDERS.filter(p=>p.enabled&&p.status==='connected').length} 个提供方已连接 · ${availableModels().length} 个模型可选` },
   docs:{ title:'文档产出库', sub:()=> `共 ${DOCS.length} 份 Agent 产出文档` },
 };
 
@@ -1094,6 +1171,7 @@ function renderView(opts={}){
   else if(State.view==='agents') root.innerHTML = renderAgents();
   else if(State.view==='tasks') root.innerHTML = renderTasks();
   else if(State.view==='publish-task') root.innerHTML = renderPublishTask();
+  else if(State.view==='providers') root.innerHTML = renderProviders();
   else if(State.view==='docs') root.innerHTML = renderDocs();
   root.classList.remove('view'); void root.offsetWidth; root.classList.add('view');
   wireViewEvents();
@@ -1104,6 +1182,8 @@ function renderView(opts={}){
 function updateNavCounts(){
   document.getElementById('nav-count-agents').textContent = AGENTS.length;
   document.getElementById('nav-count-tasks').textContent = TASKS.filter(t=>t.status!=='done').length;
+  const pv = document.getElementById('nav-count-providers');
+  if(pv) pv.textContent = PROVIDERS.length;
 }
 
 /* ============================================================
@@ -1322,8 +1402,25 @@ function wizardStepIdentity(agent){
     <div class="hint">名称与角色定位会出现在 Agent 中心卡片、任务候选人列表等所有需要辨认这个 Agent 的地方，是唯一必填项。</div>`;
 }
 function wizardStepPersona(agent){
-  const modelCards = Object.entries(MODEL_META).map(([key,m])=>`<div class="radio-card ${agent.model===key?'selected':''}" data-model="${key}"><b>${m.label}</b><span>${m.hint}</span></div>`).join('');
   const effortCards = Object.entries(EFFORT_META).map(([key,m])=>`<div class="radio-card ${agent.effort===key?'selected':''}" data-effort="${key}"><b>${m.label}</b></div>`).join('');
+  // 底层模型从"已启用+已连接"的模型服务里取；按服务分组，让用户看清模型来自哪个 API 提供方
+  const models = availableModels();
+  let modelBlock;
+  if(!models.length){
+    modelBlock = `<div class="empty-state" style="padding:20px 10px;">${ic('model')}<b>还没有可用的模型服务</b><span>先去「模型接入」添加并连接一个 API 提供方</span>
+      <button type="button" class="btn btn-primary btn-sm" data-goto-providers style="margin-top:6px;">${ic('plug')}前往模型接入</button></div>`;
+  } else {
+    const byProvider = {};
+    models.forEach(m=>{ (byProvider[m.providerId] ||= []).push(m); });
+    modelBlock = Object.entries(byProvider).map(([pid, list])=>{
+      const p = providerById(pid);
+      const cards = list.map(m=>`<div class="radio-card ${agent.model===m.key?'selected':''}" data-model="${m.key}"><b>${esc(m.label)}</b><span>${esc(m.hint||'')}${m.ctx&&m.ctx!=='—'?' · 上下文 '+m.ctx:''}</span></div>`).join('');
+      return `<div class="model-provider-group">
+        <div class="model-provider-label">${ic('plug')}${esc(p.name)} <span class="origin-tag tone-${PROVIDER_TYPE_META[p.type].tone}">${PROVIDER_TYPE_META[p.type].label}</span></div>
+        <div class="radio-card-group model-group">${cards}</div>
+      </div>`;
+    }).join('');
+  }
   return `
     <div class="field">
       <label class="field-label">人格设定 / 系统提示词</label>
@@ -1331,8 +1428,8 @@ function wizardStepPersona(agent){
       <div class="hint">将作为该 Agent 每次执行任务时的系统提示词前缀</div>
     </div>
     <div class="field">
-      <label class="field-label">底层模型</label>
-      <div class="radio-card-group" id="model-group">${modelCards}</div>
+      <label class="field-label">底层模型 <span class="hint" style="display:inline;margin:0;">· 来自「模型接入」配置的 API 提供方</span></label>
+      <div id="model-group">${modelBlock}</div>
     </div>
     <div class="field">
       <label class="field-label">推理强度</label>
@@ -1401,7 +1498,7 @@ function wizardStepReview(agent){
     </div>` : '';
   return `
     <div class="review-block"><h4>身份</h4>${rows([['头像 / 名称', agent.avatar+' '+esc(agent.name||'（未填写）')],['角色定位', esc(agent.role||'（未填写）')]])}</div>
-    <div class="review-block"><h4>人格与模型</h4>${rows([['系统提示词', esc(agent.bio||'（未填写）')],['底层模型', MODEL_META[agent.model].label],['推理强度', EFFORT_META[agent.effort].label]])}</div>
+    <div class="review-block"><h4>人格与模型</h4>${rows([['系统提示词', esc(agent.bio||'（未填写）')],['底层模型', (()=>{ const m=modelByKey(agent.model); return m? esc(m.label)+' <span class=\"hint\" style=\"display:inline;margin:0;\">('+esc(m.providerName)+')</span>' : '<span style=\"color:var(--danger)\">未选择或所属服务已停用</span>'; })()],['推理强度', EFFORT_META[agent.effort].label]])}</div>
     <div class="review-block"><h4>技能与模块</h4>${rows([['技能标签', agent.skills.join('、')||'（未填写）'],['挂载模块', esc(modules)]])}</div>
     <div class="review-block"><h4>协作与权限</h4>${rows([['协作偏好', agent.collabPref==='auto'?'自动认领':'仅指定分配'],['执行代码需确认', agent.permissions.confirmCode?'是':'否'],['对外发送需确认', agent.permissions.confirmExternal?'是':'否'],['单任务预算上限', agent.permissions.budget?esc(String(agent.permissions.budget)):'不限制']])}</div>
     ${statsBlock}`;
@@ -1503,6 +1600,7 @@ function wireAgentWizardEvents(){
     if(emoji){ draftAgent.avatar = emoji.dataset.emoji; modalRoot.querySelectorAll('[data-emoji]').forEach(o=>o.classList.toggle('selected', o===emoji)); return; }
     const modelOpt = e.target.closest('[data-model]');
     if(modelOpt){ draftAgent.model = modelOpt.dataset.model; modalRoot.querySelectorAll('[data-model]').forEach(o=>o.classList.toggle('selected', o===modelOpt)); return; }
+    if(e.target.closest('[data-goto-providers]')){ closeModal(); switchView('providers'); return; }
     const effortOpt = e.target.closest('[data-effort]');
     if(effortOpt){ draftAgent.effort = effortOpt.dataset.effort; modalRoot.querySelectorAll('[data-effort]').forEach(o=>o.classList.toggle('selected', o===effortOpt)); return; }
     const prefOpt = e.target.closest('[data-collab-pref]');
@@ -2249,6 +2347,131 @@ function mechanismModalHtml(){
 }
 
 /* ============================================================
+   模型接入（AI API 提供方配置）
+   Agent 的可选"底层模型"来自这里配置的提供方——增删改一个提供方，会即时改变
+   Agent 创建向导里能选到的模型集合。所有 API Key / 连接测试均为原型演示态。
+============================================================ */
+function providerCardHtml(p){
+  const tm = PROVIDER_TYPE_META[p.type];
+  const sm = PROVIDER_STATUS_META[p.status];
+  const modelChips = p.models.length
+    ? p.models.map(m=>`<span class="skill-chip">${esc(m.label)}${m.ctx&&m.ctx!=='—'?' · '+m.ctx:''}</span>`).join('')
+    : '<span class="hint" style="margin:0;">尚未发现模型，点"测试连接"拉取</span>';
+  return `<div class="card provider-card ${p.enabled?'':'is-disabled'}">
+    <div class="provider-head">
+      <div class="provider-title">
+        <b>${esc(p.name)}</b>
+        <span class="origin-tag tone-${tm.tone}">${tm.label}</span>
+        <span class="pill ${sm.pillClass}">${sm.label}</span>
+      </div>
+      <label class="switch"><input type="checkbox" data-provider-toggle="${p.id}" ${p.enabled?'checked':''}><span class="track"></span><span class="thumb"></span></label>
+    </div>
+    <div class="provider-meta">
+      <div class="provider-meta-row">${ic('web')}<span class="k">Base URL</span><code>${esc(p.baseUrl)}</code></div>
+      <div class="provider-meta-row">${ic('shield')}<span class="k">API Key</span><code>${esc(p.apiKeyMasked)}</code></div>
+    </div>
+    <div class="provider-models">${modelChips}</div>
+    <div class="provider-foot">
+      <button class="btn btn-ghost btn-sm" data-provider-test="${p.id}">${ic('plug')}测试连接</button>
+      <button class="btn btn-ghost btn-sm" data-provider-edit="${p.id}">${ic('pencil')}编辑</button>
+      <button class="btn btn-ghost btn-sm" data-provider-delete="${p.id}" style="color:var(--danger);margin-left:auto;">${ic('trash')}删除</button>
+    </div>
+  </div>`;
+}
+function renderProviders(){
+  const cards = PROVIDERS.map(providerCardHtml).join('') || `<div class="empty-state" style="padding:40px;"><span>还没有配置任何模型服务</span></div>`;
+  const connected = PROVIDERS.filter(p=>p.enabled && p.status==='connected').length;
+  const modelTotal = availableModels().length;
+  return `
+    <div class="section-head" style="margin-top:0;">
+      <h2>模型接入</h2>
+      <button class="btn btn-primary btn-sm" data-provider-add>${ic('plus')}添加模型服务</button>
+    </div>
+    <div class="hint" style="margin:-4px 0 16px;">已连接 ${connected} 个提供方 · 共 ${modelTotal} 个模型可供 Agent 选择。Agent 创建向导里的"底层模型"从这里的已连接服务实时读取。</div>
+    <div class="mock-note" style="margin-bottom:16px;">${ic('shield')}原型演示：API Key 仅本地内存态、界面上一律脱敏展示；"测试连接"不会真的请求外部 API，而是按服务类型返回一批示意模型。接入真实后端后，这里才会发起真实鉴权与模型列表拉取。</div>
+    <div class="provider-grid">${cards}</div>`;
+}
+
+let draftProvider = null;
+function providerModalHtml(p){
+  const typeCards = Object.entries(PROVIDER_TYPE_META).map(([key,m])=>`<div class="radio-card ${p.type===key?'selected':''}" data-provider-type="${key}"><b>${m.label}</b><span>${m.hint}</span></div>`).join('');
+  const discovered = p._discovered
+    ? `<div class="field"><label class="field-label">已发现模型（${p._discovered.length}）</label>
+        <div class="provider-models">${p._discovered.map(m=>`<span class="skill-chip">${esc(m.label)}${m.ctx&&m.ctx!=='—'?' · '+m.ctx:''}</span>`).join('')}</div></div>`
+    : '';
+  return `
+    <div class="modal-head"><h3>${p.mode==='create'?'添加模型服务':'编辑模型服务'}</h3><button class="btn-icon" data-close-modal>${ic('close')}</button></div>
+    <div class="modal-body">
+      <div class="field"><label class="field-label">服务名称</label><input class="input" id="pv-name" value="${esc(p.name)}" placeholder="例如：Anthropic 官方 / 公司网关"></div>
+      <div class="field">
+        <label class="field-label">服务类型</label>
+        <div class="radio-card-group" id="pv-type-group">${typeCards}</div>
+      </div>
+      <div class="field"><label class="field-label">Base URL</label><input class="input" id="pv-baseurl" value="${esc(p.baseUrl)}" placeholder="https://api.example.com/v1"></div>
+      <div class="field"><label class="field-label">API Key</label><input class="input" id="pv-apikey" type="password" value="${esc(p._rawKey||'')}" placeholder="sk-…（仅本地内存态，脱敏保存）"></div>
+      <div class="field" style="margin-bottom:0;">
+        <button class="btn btn-secondary btn-sm" id="pv-test">${ic('plug')}测试连接并拉取模型</button>
+        <span class="pill ${PROVIDER_STATUS_META[p.status].pillClass}" style="margin-left:8px;">${PROVIDER_STATUS_META[p.status].label}</span>
+      </div>
+      ${discovered}
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" data-close-modal>取消</button>
+      <button class="btn btn-primary" id="pv-save">${ic('check')}${p.mode==='create'?'保存并接入':'保存修改'}</button>
+    </div>`;
+}
+function openProviderModal(providerId){
+  const src = providerId ? providerById(providerId) : null;
+  draftProvider = src
+    ? { ...JSON.parse(JSON.stringify(src)), mode:'edit', _rawKey:'', _discovered:null }
+    : { id:'prov-'+Date.now(), mode:'create', name:'', type:'openai', baseUrl:'', apiKeyMasked:'', _rawKey:'', enabled:true, status:'untested', models:[], _discovered:null };
+  openModal(providerModalHtml(draftProvider));
+  wireProviderModal();
+}
+function wireProviderModal(){
+  const modalRoot = document.getElementById('modal-container');
+  function refresh(){ modalRoot.innerHTML = providerModalHtml(draftProvider); makeKeyboardClickable(modalRoot); }
+  modalRoot.addEventListener('input', (e)=>{
+    if(e.target.id==='pv-name') draftProvider.name = e.target.value;
+    else if(e.target.id==='pv-baseurl') draftProvider.baseUrl = e.target.value;
+    else if(e.target.id==='pv-apikey') draftProvider._rawKey = e.target.value;
+  });
+  modalRoot.addEventListener('click', (e)=>{
+    if(e.target.closest('[data-close-modal]')){ closeModal(); return; }
+    const typeOpt = e.target.closest('[data-provider-type]');
+    if(typeOpt){ draftProvider.type = typeOpt.dataset.providerType; modalRoot.querySelectorAll('[data-provider-type]').forEach(o=>o.classList.toggle('selected', o===typeOpt)); return; }
+    if(e.target.closest('#pv-test')){
+      const btn = e.target.closest('#pv-test'); btn.disabled = true; btn.textContent = '测试中…';
+      setTimeout(()=>{
+        // 演示态：按类型返回一批示意模型，并把状态置为已连接
+        draftProvider._discovered = SAMPLE_DISCOVERY[draftProvider.type].map((m,i)=>({ id:draftProvider.id+'-m'+i, label:m.label, hint:m.hint, ctx:m.ctx }));
+        draftProvider.status = 'connected';
+        refresh();
+        showToast('check', '连接成功，发现 '+draftProvider._discovered.length+' 个模型（演示数据）');
+      }, 800);
+      return;
+    }
+    if(e.target.closest('#pv-save')){
+      const name = (draftProvider.name||'').trim();
+      if(!name){ document.getElementById('pv-name').focus(); showToast('shield','请先填写服务名称'); return; }
+      draftProvider.name = name;
+      draftProvider.baseUrl = (draftProvider.baseUrl||'').trim() || '（未填写）';
+      // 脱敏：只保留前后几位
+      const k = (draftProvider._rawKey||'').trim();
+      draftProvider.apiKeyMasked = k ? (k.slice(0,6)+'••••••••'+k.slice(-4)) : (draftProvider.apiKeyMasked || '（无需密钥）');
+      if(draftProvider._discovered){ draftProvider.models = draftProvider._discovered; }
+      const clean = { id:draftProvider.id, name:draftProvider.name, type:draftProvider.type, baseUrl:draftProvider.baseUrl, apiKeyMasked:draftProvider.apiKeyMasked, enabled:draftProvider.enabled!==false, status:draftProvider.status, models:draftProvider.models };
+      const idx = PROVIDERS.findIndex(p=>p.id===clean.id);
+      if(idx>-1){ PROVIDERS[idx] = clean; showToast('check', clean.name+' 已更新'); }
+      else { PROVIDERS.push(clean); showToast('sparkle', clean.name+' 已接入'); }
+      closeModal();
+      if(State.view==='providers') renderView(); else updateNavCounts();
+      return;
+    }
+  });
+}
+
+/* ============================================================
    MODAL / TOAST HELPERS
 ============================================================ */
 function openModal(html, size=''){
@@ -2280,7 +2503,7 @@ function showToast(icon, text){
 ============================================================ */
 /* Make non-native clickable elements (div-based cards/chips) keyboard operable:
    focusable via Tab, and activatable via Enter/Space — required for visible-focus to mean anything. */
-const KEYBOARD_CLICKABLE_SELECTOR = '[data-open-agent],[data-open-task],[data-open-doc],[data-claim],[data-agent-filter],[data-collab-pref],[data-priority],[data-assign],[data-view-link],[data-action],[data-emoji],[data-module-toggle-card],[data-model],[data-effort],[data-wizard-jump]';
+const KEYBOARD_CLICKABLE_SELECTOR = '[data-open-agent],[data-open-task],[data-open-doc],[data-claim],[data-agent-filter],[data-collab-pref],[data-priority],[data-assign],[data-view-link],[data-action],[data-emoji],[data-module-toggle-card],[data-model],[data-effort],[data-wizard-jump],[data-provider-type]';
 function makeKeyboardClickable(root){
   root.querySelectorAll(KEYBOARD_CLICKABLE_SELECTOR).forEach(el=>{
     if(el.tagName==='BUTTON' || el.tagName==='A' || el.tagName==='INPUT') return;
@@ -2421,6 +2644,27 @@ function wireViewEvents(){
   document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click', (e)=>{
     e.stopPropagation();
     if(el.dataset.action==='new-task'){ newTaskSkills = []; switchView('publish-task'); }
+  }));
+  // 模型接入页
+  document.querySelectorAll('[data-provider-add]').forEach(el=>el.addEventListener('click', ()=>openProviderModal(null)));
+  document.querySelectorAll('[data-provider-edit]').forEach(el=>el.addEventListener('click', ()=>openProviderModal(el.dataset.providerEdit)));
+  document.querySelectorAll('[data-provider-toggle]').forEach(el=>el.addEventListener('change', ()=>{
+    const p = providerById(el.dataset.providerToggle); if(!p) return;
+    p.enabled = el.checked;
+    showToast(p.enabled?'check':'trash', p.name+(p.enabled?' 已启用':' 已停用')+(p.enabled?'':'，其模型不再对 Agent 可选'));
+    renderView();
+  }));
+  document.querySelectorAll('[data-provider-test]').forEach(el=>el.addEventListener('click', ()=>{
+    const p = providerById(el.dataset.providerTest); if(!p) return;
+    el.disabled = true; el.textContent = '测试中…';
+    setTimeout(()=>{ p.status = 'connected'; showToast('check', p.name+' 连接正常，发现 '+p.models.length+' 个模型（演示）'); renderView(); }, 700);
+  }));
+  document.querySelectorAll('[data-provider-delete]').forEach(el=>el.addEventListener('click', ()=>{
+    const p = providerById(el.dataset.providerDelete); if(!p) return;
+    const usedBy = AGENTS.filter(a=> p.models.some(m=>m.id===a.model)).map(a=>a.name);
+    PROVIDERS = PROVIDERS.filter(x=>x.id!==p.id);
+    showToast('trash', p.name+' 已删除'+(usedBy.length? ('，'+usedBy.length+' 个 Agent 的模型需重新选择') : ''));
+    renderView();
   }));
   if(State.view==='publish-task') wirePublishTaskEvents();
   makeKeyboardClickable(document.getElementById('view-root'));

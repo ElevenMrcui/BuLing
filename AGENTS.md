@@ -93,8 +93,8 @@
 - **设计令牌（`:root` / `@media prefers-color-scheme` / `[data-theme]`）**：颜色 / 圆角 / 阴影 / 缓动，深浅双主题三态齐全。
 - **组件样式**：按功能块注释分隔（app-shell / 卡片 / 任务看板 / 任务详情 / 向导 / 机制矩阵 …）。
 - **ICONS**：内联 SVG 图标表 + 占位符替换。
-- **DATA MODEL（mock）**：`AGENTS` / `TASKS` / `DOCS` / `MODULE_CATALOG` / `LOCAL_CANDIDATES` / `MARKET_CATALOG` 等内存态数据。
-- **视图渲染**：`renderOverview` / `renderAgents` / `renderTasks` / `renderPublishTask` / `renderDocs` + `renderTaskDetail`。
+- **DATA MODEL（mock）**：`AGENTS` / `TASKS` / `DOCS` / `MODULE_CATALOG` / `LOCAL_CANDIDATES` / `MARKET_CATALOG` / `PROVIDERS`（AI API 提供方）等内存态数据。
+- **视图渲染**：`renderOverview` / `renderAgents` / `renderTasks` / `renderPublishTask` / `renderProviders` / `renderDocs` + `renderTaskDetail`。
 - **交互装配**：`wireViewEvents` 及各弹层 / 向导的事件委托。
 
 > 生产实现的目录约定（`src/` 布局、框架、后端）为**待确认**，等技术栈选定后在本节补充，不预先臆造。
