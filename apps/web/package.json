@@ -1,0 +1,25 @@
+{
+  "name": "@buling/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p ${WEB_PORT:-13000}",
+    "build": "next build",
+    "start": "next start -p ${WEB_PORT:-13000}",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint",
+    "test": "echo 'test TODO'"
+  },
+  "dependencies": {
+    "@buling/shared": "workspace:*",
+    "next": "^14.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.6.0"
+  }
+}

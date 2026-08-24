@@ -4,7 +4,10 @@
 
 **不令** 是一个去中心化的多智能体（Multi-Agent）协作平台。名字化用《论语·子路》"其身正，不令而行"——不需要发号施令，事情照样成了。它精准对应本平台的核心主张：平台不做中心化的任务分发者，Agent 靠技能契约自主认领、靠协作痕迹彼此感知、靠临时聚阵完成复杂任务，只有质量评审这一环保留人工兜底。
 
-当前仓库处于 **产品原型（Prototype）阶段**：交付物是一份可交互的高保真前端原型（`prototype/index.html`），用于产品/内部评审，尚未接入真实后端。
+仓库同时承载两个阶段的交付物：
+
+1. **产品原型**：`prototype/index.html` —— 高保真、可交互、单文件零依赖，用于产品/内部评审
+2. **企业级骨架（R1）**：`apps/api` + `apps/web` + `packages/shared` + `prisma` + `infra` —— NestJS + Next.js + PostgreSQL + Redis，已落地评审红线的三层强约束、意愿分算法、Provider 密钥加密。详见 [`docs/企业级架构与落地方案.md`](docs/企业级架构与落地方案.md) 与 [`docs/骨架启动指南.md`](docs/骨架启动指南.md)
 
 ---
 
@@ -41,19 +44,28 @@
 
 ## 快速开始
 
-原型是**单文件、零依赖、免构建**的静态页面：
+### 方式 A：只看原型（0 依赖）
 
 ```bash
-# 方式一：直接用浏览器打开
+# 直接浏览器打开
 open prototype/index.html            # macOS
 xdg-open prototype/index.html        # Linux
-
-# 方式二：本地起个静态服务器（推荐，避免个别浏览器对 file:// 的限制）
-cd prototype && python3 -m http.server 8080
-# 浏览器访问 http://localhost:8080
+# 或起个静态服务器
+cd prototype && python3 -m http.server 8080  # http://localhost:8080
 ```
 
-无需 `npm install`、无需打包、无需后端。页面自适应深 / 浅色（跟随系统或手动切换），移动端有响应式抽屉导航。
+### 方式 B：跑真实后端骨架（Node 22 + Docker）
+
+```bash
+cp .env.example .env
+make install
+make db                              # 起 Postgres + Redis
+make generate && make migrate        # Prisma
+pnpm --filter @buling/api prisma:seed
+make dev                             # API :13500 + Web :13000
+```
+
+详细步骤与 E2E 演示见 [`docs/骨架启动指南.md`](docs/骨架启动指南.md)。
 
 ---
 
@@ -61,15 +73,26 @@ cd prototype && python3 -m http.server 8080
 
 ```
 .
-├── README.md                    # 本文
-├── AGENTS.md                    # 仓库开发规则（权威源）
-├── CLAUDE.md                    # 分支政策 · design-first flow · 文档地图（精简指针）
+├── README.md
+├── AGENTS.md                       仓库开发规则（权威源）
+├── CLAUDE.md                       分支政策 · design-first flow · 文档地图（精简指针）
+├── Makefile
+├── package.json / pnpm-workspace.yaml / tsconfig.base.json / .env.example
 ├── prototype/
-│   └── index.html               # 高保真可交互原型（单文件）
+│   └── index.html                  高保真可交互原型（单文件、零依赖）
+├── apps/
+│   ├── api/                        NestJS + Fastify + Prisma（R1 骨架）
+│   └── web/                        Next.js 14 App Router（R1 E2E 演示）
+├── packages/
+│   └── shared/                     前后端契约唯一真源（DTO / 枚举）
+├── infra/
+│   └── docker-compose.yml          Postgres + Redis
 └── docs/
-    ├── 项目开发须知.md           # 新 Agent 主入口（~15 分钟统一上手）
-    ├── 产品原型说明.md           # 原型规格：页面 / 数据模型 / 交互 / mock 边界
-    └── 协作机制设计.md           # 三层机制矩阵 · 红线 · 设计取舍
+    ├── 项目开发须知.md              新 Agent 主入口（~15 分钟统一上手）
+    ├── 产品原型说明.md              原型规格
+    ├── 协作机制设计.md              三层机制矩阵 · 评审红线 · 设计取舍
+    ├── 企业级架构与落地方案.md      技术选型 / 架构图 / 模块拆分 / 数据模型 / API / R1-R3 路线图
+    └── 骨架启动指南.md              R1 骨架三分钟跑起来
 ```
 
 ---

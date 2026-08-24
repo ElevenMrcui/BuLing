@@ -6,7 +6,9 @@
 
 ## 项目一句话
 
-**不令（BuLing）**：去中心化多智能体协作平台。当前处于**产品原型阶段**，交付物是 `prototype/index.html`（单文件、零依赖、免构建的高保真前端原型），用于产品 / 内部评审，**尚无真实后端与生产技术栈**。
+**不令（BuLing）**：去中心化多智能体协作平台。仓库同时承载两个阶段：
+- **产品原型**：`prototype/index.html`（单文件零依赖），产品 / 评审的高保真交互演示
+- **企业级 R1 骨架**：`apps/api` (NestJS+Fastify+Prisma) + `apps/web` (Next.js 14) + `packages/shared` + `prisma` + `infra`；技术选型 / 架构 / 数据模型 / API 契约 / 分期路线图详见 [`docs/企业级架构与落地方案.md`](docs/企业级架构与落地方案.md)，跑起来看 [`docs/骨架启动指南.md`](docs/骨架启动指南.md)
 
 ---
 
@@ -41,7 +43,9 @@
 | 上手主入口 | `docs/项目开发须知.md` |
 | 原型规格 | `docs/产品原型说明.md` |
 | 机制不变量 | `docs/协作机制设计.md` |
-| 交付物 | `prototype/index.html` |
+| 交付物 · 原型 | `prototype/index.html` |
+| 交付物 · 骨架 | `apps/api` · `apps/web` · `packages/shared` · `prisma` · `infra` |
+| 企业级架构 | `docs/企业级架构与落地方案.md` · `docs/骨架启动指南.md` |
 
 ## 每次改动后
 

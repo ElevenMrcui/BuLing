@@ -1,0 +1,62 @@
+/* 骨架样式：R2 迁入原型的完整设计令牌。当前仅够跑通 E2E 流程。 */
+:root {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --ink: #1d1d1f;
+  --ink-2: #6e6e73;
+  --border: rgba(0, 0, 0, 0.08);
+  --accent: #0071e3;
+  --success: #1f7a36;
+  --danger: #d70015;
+  --warning: #b25000;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000; --surface: #1c1c1e; --ink: #f5f5f7; --ink-2: #98989d;
+    --border: rgba(255,255,255,.1); --accent: #0a84ff;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+.topbar { display: flex; align-items: center; gap: 24px; padding: 14px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .mark { width: 32px; height: 32px; border-radius: 10px;
+  background: linear-gradient(155deg, var(--accent), #8f35bc);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; }
+.brand b { font-size: 15px; }
+.brand span { font-size: 11.5px; color: var(--ink-2); margin-left: 6px; }
+.topbar nav { display: flex; gap: 16px; margin-left: auto; }
+.topbar nav a { color: var(--ink-2); text-decoration: none; font-size: 13px; }
+.topbar nav a:hover { color: var(--accent); }
+main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.015em; margin: 0 0 6px; }
+h2 { font-size: 16px; font-weight: 640; margin: 22px 0 10px; }
+.sub { font-size: 12.5px; color: var(--ink-2); margin-bottom: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 10px; }
+.row { display: flex; gap: 10px; align-items: center; }
+.row > * { min-width: 0; }
+.btn { display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border);
+  background: transparent; color: var(--ink); cursor: pointer; font-size: 12.5px; font-family: inherit; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.05); color: #fff; }
+.btn.danger { color: var(--danger); }
+.pill { display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 620; padding: 2px 8px; border-radius: 999px;
+  background: rgba(0,0,0,.06); color: var(--ink-2); }
+.pill.st-open   { background: rgba(0,113,227,.12); color: var(--accent); }
+.pill.st-review { background: rgba(255,149,0,.14); color: var(--warning); }
+.pill.st-done   { background: rgba(52,199,89,.14); color: var(--success); }
+.input, textarea { width: 100%; background: rgba(0,0,0,.05); border: 1px solid transparent;
+  border-radius: 10px; padding: 9px 12px; font: inherit; color: var(--ink); }
+.input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.err { color: var(--danger); font-size: 12px; padding: 8px 12px; border: 1px solid var(--danger);
+  border-radius: 10px; background: rgba(215,0,21,.06); margin-bottom: 12px; }
+.hint { font-size: 11.5px; color: var(--ink-2); }
