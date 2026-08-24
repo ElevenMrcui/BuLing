@@ -3,8 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-</head>
-<body>
 <title>不令</title>
 <style>
   /* ============ Design tokens ============ */
@@ -914,14 +912,33 @@ const MODULE_CATALOG = {
   puzzle:   { name:'任务编排', icon:'puzzle', desc:'拆解目标并编排协作链路', origin:'builtin', permission:'仅平台内任务读写' },
 };
 
-/* 本机网关：这一层在浏览器沙箱里只能停在"模拟"——一个发布出去的网页天然拿不到用户
-   本机进程/CLI 列表，真要发现本机真实安装的工具，需要一个本机常驻的网关进程与这个页面
-   建立连接后才行。这里的候选列表是"接上真实网关后大致会长什么样"的示意，不是真实扫描结果。 */
-let localGateway = { connected:false, scanned:false };
-const LOCAL_CANDIDATES = [
-  { id:'local-git',      name:'本机 Git',   icon:'code',   desc:'读取仓库状态与提交历史，执行只读 git 命令', origin:'local', permission:'限定 ~/projects 目录 · 仅只读命令' },
-  { id:'local-terminal', name:'本机终端',   icon:'code',   desc:'在本机执行命令行工具（如 ffmpeg、python）', origin:'local', permission:'逐条命令白名单确认' },
-  { id:'local-docker',   name:'本机 Docker', icon:'puzzle', desc:'查看容器状态、触发指定构建脚本', origin:'local', permission:'仅限指定 compose 项目' },
+/* 本机网关：优先"配对本地网关（apps/local-gateway）"做真实扫描；未配对时回退到示意数据。
+   - 配对信息（Base URL + Token）持久化在 localStorage 的 'buling-gateway'；
+   - 扫描到的 AI 厂商 CLI 通过 registry 分类展示（vendor / 版本 / 安装路径 / 建议安装命令）；
+   - **只 discover，不 execute**：把 CLI 挂载到 Agent 后的实际执行走服务端 execution 沙箱，
+     不是这个网关自己 spawn 用户代码（对应 R2 · execution 模块）。 */
+let localGateway = {
+  paired: false,       // 是否已经配对成功
+  baseUrl: 'http://127.0.0.1:17817',
+  token: '',
+  connecting: false,
+  error: null,         // 最近一次错误信息（供 UI 展示）
+  scanning: false,
+  scannedAt: null,     // 上次扫描时间
+  items: [],           // DiscoveredCli[]（真扫描结果）
+  platform: null,      // 网关自报平台
+};
+try {
+  const saved = localStorage.getItem('buling-gateway');
+  if (saved){ const s = JSON.parse(saved); localGateway.baseUrl = s.baseUrl || localGateway.baseUrl; localGateway.token = s.token || ''; }
+} catch(e){}
+
+/* 未配对时的示意数据：让用户能在没跑网关时也能看清"接上后会长什么样"。 */
+const LOCAL_CANDIDATES_MOCK = [
+  { id:'anthropic-claude-code', name:'Claude Code', vendor:'Anthropic', desc:'Anthropic 官方终端 Coding Agent', suggestInstall:'npm i -g @anthropic-ai/claude-code' },
+  { id:'openai-codex-cli',      name:'OpenAI Codex CLI', vendor:'OpenAI', desc:'OpenAI 官方终端 Coding Agent', suggestInstall:'npm i -g @openai/codex' },
+  { id:'google-gemini-cli',     name:'Gemini CLI', vendor:'Google', desc:'Google 官方 Gemini 终端 Agent', suggestInstall:'npm i -g @google/gemini-cli' },
+  { id:'ollama',                name:'Ollama', vendor:'Ollama', desc:'本机运行开源大模型', suggestInstall:'brew install ollama' },
 ];
 
 /* 技能市场：未安装时只在市场列表出现，不会污染任何 Agent 的挂载面板；安装（含"粘贴链接安装"
@@ -1497,6 +1514,158 @@ function renderMarketInstallCard(item){
 }
 let skillPanelTab = 'installed';
 let marketAddMode = null; // null | 'link' | 'upload'
+
+/* ============================================================
+   本机发现：与 apps/local-gateway 对接
+   - 未配对：显示"配对面板"（Base URL + Token 输入），下方展示 mock 候选让用户先看清能扫到什么
+   - 已配对：调 GET /discover，按 installed / not-found 分组展示；
+     installed 的可挂载到 draftAgent.modules（保留同名 key 避免与已安装重复）；
+     not-found 的显示"未安装 + 一句话建议装法"（不占挂载位）。
+============================================================ */
+function renderLocalPanel(agent){
+  const g = localGateway;
+  const pairForm = `<div class="skill-upload-form">
+      <div class="hint" style="margin:0 0 4px;">配对本地网关（在 Mac 上跑 <code>make gateway</code>，把打印的 Token 粘过来）</div>
+      <div class="field-row">
+        <div class="field" style="margin-bottom:0;flex:1;">
+          <input class="input" id="gw-base" value="${esc(g.baseUrl)}" placeholder="http://127.0.0.1:17817">
+        </div>
+        <div class="field" style="margin-bottom:0;flex:2;">
+          <input class="input" id="gw-token" type="password" value="${esc(g.token)}" placeholder="X-Gateway-Token">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        ${g.paired? `<button class="btn btn-ghost btn-sm" id="btn-gw-unpair">${ic('close')}断开配对</button>` : ''}
+        <button class="btn btn-primary btn-sm" id="btn-gw-pair" ${g.connecting?'disabled':''}>
+          ${ic('plug')}${g.connecting?'连接中…':(g.paired?'重新连接':'连接并扫描')}
+        </button>
+      </div>
+      ${g.error? `<div class="err" style="margin:8px 0 0;">${ic('shield')} 连接失败：${esc(g.error)}</div>`:''}
+    </div>`;
+
+  if(!g.paired){
+    // 未配对：配对面板 + 说明 + mock 预览
+    const mock = LOCAL_CANDIDATES_MOCK.map(m => `<div class="toggle-row">
+      <div class="meta">
+        <div class="icon-badge">${ic('plug')}</div>
+        <div><b>${esc(m.name)} <span class="origin-tag tone-success">${esc(m.vendor)}</span></b>
+          <span>${esc(m.desc)}</span>
+          <span class="permission-tag">${ic('shield')}未装 · 建议：<code>${esc(m.suggestInstall)}</code></span></div>
+      </div>
+    </div>`).join('');
+    return `${pairForm}
+      <div class="mock-note">${ic('shield')}未配对本地网关；下方为示意列表，非真实扫描结果。
+      配对成功后会显示你 Mac 上真实安装的 AI 厂商 CLI（Claude Code / Codex CLI / Gemini CLI / Ollama / Aider …）。</div>
+      ${mock}`;
+  }
+
+  // 已配对：显示 items
+  const statusRow = `<div class="hint" style="display:flex;align-items:center;gap:6px;padding:8px 2px;">
+    <span class="pill st-working">已连接</span>
+    <span>${g.platform||'—'} · 上次扫描 ${g.scannedAt? new Date(g.scannedAt).toLocaleTimeString() : '—'}</span>
+    <button class="btn btn-ghost btn-sm" id="btn-gw-scan" ${g.scanning?'disabled':''} style="margin-left:auto;">
+      ${ic('sparkle')}${g.scanning?'扫描中…':'重新扫描'}
+    </button>
+  </div>`;
+
+  const installed = g.items.filter(i => i.status === 'installed');
+  const notFound  = g.items.filter(i => i.status === 'not-found');
+  const errored   = g.items.filter(i => i.status === 'error');
+
+  const installedHtml = installed.length ? installed.map(i => renderDiscoveredInstalled(i, agent)).join('') :
+    `<div class="empty-state" style="padding:14px;"><span>未在本机发现任何注册表内的 CLI</span></div>`;
+  const notFoundHtml = notFound.length ? `<div class="hint" style="padding:10px 2px 4px;">未安装（点条目跳厂商官网）</div>` +
+    notFound.map(i => `<div class="toggle-row">
+      <div class="meta">
+        <div class="icon-badge">${ic('plug')}</div>
+        <div><b><a href="${esc(i.homepage)}" target="_blank" rel="noopener">${esc(i.name)}</a>
+          <span class="origin-tag tone-neutral">${esc(i.vendor)}</span></b>
+          <span>${esc(i.description)}</span>
+          ${i.suggestInstall? `<span class="permission-tag">${ic('shield')}建议装法：<code>${esc(i.suggestInstall)}</code></span>`:''}</div>
+      </div>
+    </div>`).join('') : '';
+  const errHtml = errored.length ? `<div class="hint" style="padding:10px 2px 4px;color:var(--danger);">探测出错（${errored.length}）</div>` +
+    errored.map(i => `<div class="toggle-row"><div class="meta"><div>${esc(i.name)}：${esc(i.error||'unknown')}</div></div></div>`).join('') : '';
+
+  return `${pairForm}${statusRow}
+    <div class="hint" style="padding:6px 2px;">已安装（${installed.length}）· 打开开关即挂载到该 Agent；不删除 CLI 本身，只是取消挂载</div>
+    ${installedHtml}${notFoundHtml}${errHtml}`;
+}
+function renderDiscoveredInstalled(i, agent){
+  const modKey = 'local:' + i.id;
+  const checked = agent.modules.includes(modKey);
+  return `<div class="toggle-row">
+    <div class="meta">
+      <div class="icon-badge" style="color:var(--success)">${ic('plug')}</div>
+      <div>
+        <b>${esc(i.name)} <span class="origin-tag tone-success">${esc(i.vendor)}</span>${i.version? `<span class="permission-tag" style="margin-left:6px;">${esc(i.version)}</span>`:''}</b>
+        <span>${esc(i.agentUsage)}</span>
+        <span class="permission-tag">${ic('shield')}${esc(i.installedPath||'')}</span>
+      </div>
+    </div>
+    <div class="row-actions">
+      <label class="switch">
+        <input type="checkbox" data-local-toggle="${esc(modKey)}" data-local-payload='${esc(JSON.stringify({name:i.name, desc:i.agentUsage, permission:'仅通过服务端 execution 沙箱调用，逐条命令需 Agent 权限位放行', origin:'local'}))}' ${checked?'checked':''}>
+        <span class="track"></span><span class="thumb"></span>
+      </label>
+    </div>
+  </div>`;
+}
+
+async function pairGateway(){
+  const base = document.getElementById('gw-base').value.trim();
+  const token = document.getElementById('gw-token').value.trim();
+  if(!base || !token){ showToast('shield', '请填写 Base URL 与 Token'); return; }
+  localGateway.baseUrl = base; localGateway.token = token;
+  localGateway.connecting = true; localGateway.error = null; refreshLocalPanel();
+  try{
+    const health = await gwFetch('/health');
+    localGateway.platform = health.data.platform;
+    await scanGateway({ initial:true });
+    localGateway.paired = true;
+    try{ localStorage.setItem('buling-gateway', JSON.stringify({ baseUrl:base, token })); }catch(e){}
+    showToast('check', '已连接本地网关（'+localGateway.platform+'）· 扫描到 '+localGateway.items.filter(i=>i.status==='installed').length+' 个 AI CLI');
+  } catch(e){
+    localGateway.error = String(e && e.message || e);
+    showToast('trash', '连接失败：'+localGateway.error);
+  } finally{
+    localGateway.connecting = false; refreshLocalPanel();
+  }
+}
+async function scanGateway(opts){
+  localGateway.scanning = true; localGateway.error = null;
+  if(!opts || !opts.initial) refreshLocalPanel();
+  try{
+    const r = await gwFetch('/discover');
+    localGateway.items = r.data.items;
+    localGateway.scannedAt = r.data.scannedAt;
+    localGateway.platform = r.data.platform;
+  } catch(e){
+    localGateway.error = String(e && e.message || e);
+    if(!opts || !opts.initial) showToast('trash', '扫描失败：'+localGateway.error);
+    throw e;
+  } finally{
+    localGateway.scanning = false;
+    if(!opts || !opts.initial) refreshLocalPanel();
+  }
+}
+function unpairGateway(){
+  localGateway = { ...localGateway, paired:false, items:[], scannedAt:null, error:null };
+  try{ localStorage.removeItem('buling-gateway'); }catch(e){}
+  refreshLocalPanel();
+}
+async function gwFetch(path){
+  const res = await fetch(localGateway.baseUrl.replace(/\/+$/, '') + path, {
+    headers: { 'X-Gateway-Token': localGateway.token, 'accept':'application/json' },
+  });
+  if(!res.ok) throw new Error('HTTP '+res.status+' '+res.statusText);
+  return res.json();
+}
+function refreshLocalPanel(){
+  const body = document.getElementById('skill-panel-body');
+  if(body) body.innerHTML = renderLocalPanel(draftAgent || {modules:[]});
+  makeKeyboardClickable(document.getElementById('modal-container'));
+}
 function renderSkillPanelBody(agent){
   if(skillPanelTab==='installed'){
     const entries = Object.entries(MODULE_CATALOG);
@@ -1504,19 +1673,7 @@ function renderSkillPanelBody(agent){
     return entries.map(([key,mod])=>renderSkillCard(key, mod, agent.modules.includes(key))).join('');
   }
   if(skillPanelTab==='local'){
-    if(!localGateway.connected){
-      return `<div class="empty-state" style="padding:22px 10px;">
-        ${ic('puzzle')}<b>尚未连接本机网关</b>
-        <span>连接后可发现本机已安装的 CLI / 应用，逐项授权后才可挂载</span>
-        <button class="btn btn-primary btn-sm" id="btn-scan-local" style="margin-top:6px;">${ic('sparkle')}扫描本机</button>
-      </div>`;
-    }
-    const status = `<div class="hint" style="display:flex;align-items:center;gap:6px;padding:8px 2px 2px;">
-      <span class="pill st-working" style="margin-right:2px">已连接</span> 发现 ${LOCAL_CANDIDATES.length} 项候选能力，默认全部关闭，需逐项授权
-      <button class="btn btn-ghost btn-sm" id="btn-scan-local" style="margin-left:auto;">重新扫描</button>
-    </div>
-    <div class="mock-note">${ic('shield')}浏览器里的网页本身拿不到你本机真实安装的 CLI / 应用列表——这是"接上本机网关后大致会是什么样"的模拟数据，不是真实扫描结果。真要发现本机工具，需要一个本机常驻的网关进程与此页面建立连接。</div>`;
-    return status + LOCAL_CANDIDATES.map(item=>renderSkillCard(item.id, item, agent.modules.includes(item.id), false)).join('');
+    return renderLocalPanel(agent);
   }
   // market：已安装的市场条目并入"已安装"tab 统一管理，这里只保留"浏览可安装"+"上传/链接安装"两件事
   const addRow = `<div class="install-row">
@@ -1738,12 +1895,21 @@ function wireAgentWizardEvents(){
     const toggle = e.target.closest('[data-module-toggle]');
     if(toggle){
       const key = toggle.dataset.moduleToggle;
-      // 本机/市场条目首次被启用时，把它的定义并入统一目录，此后与其他来源走同一套契约
-      if(!MODULE_CATALOG[key]){
-        const localDef = LOCAL_CANDIDATES.find(c=>c.id===key);
-        if(localDef) MODULE_CATALOG[key] = localDef;
-      }
       if(toggle.checked){ if(!draftAgent.modules.includes(key)) draftAgent.modules.push(key); }
+      else { draftAgent.modules = draftAgent.modules.filter(m=>m!==key); }
+      return;
+    }
+    // 本机发现：真实网关返回的 CLI 条目——把 payload 并入统一目录，再挂/取消挂载
+    const localToggle = e.target.closest('[data-local-toggle]');
+    if(localToggle){
+      const key = localToggle.dataset.localToggle;
+      if(!MODULE_CATALOG[key]){
+        try{
+          const payload = JSON.parse(localToggle.dataset.localPayload || '{}');
+          MODULE_CATALOG[key] = { name: payload.name || key, icon:'plug', desc: payload.desc || '', origin:'local', permission: payload.permission || '仅通过本地网关只读发现；执行仍需 Agent 权限位放行' };
+        }catch(err){ /* payload 缺失也不阻塞挂载 */ }
+      }
+      if(localToggle.checked){ if(!draftAgent.modules.includes(key)) draftAgent.modules.push(key); }
       else { draftAgent.modules = draftAgent.modules.filter(m=>m!==key); }
     }
   });
@@ -1763,16 +1929,9 @@ function wireAgentWizardEvents(){
 
     const tab = e.target.closest('[data-skill-tab]');
     if(tab){ skillPanelTab = tab.dataset.skillTab; marketAddMode = null; refreshSkillPanel(); return; }
-    const scanBtn = e.target.closest('#btn-scan-local');
-    if(scanBtn){
-      scanBtn.disabled = true; scanBtn.textContent = '扫描中…';
-      setTimeout(()=>{
-        localGateway.connected = true; localGateway.scanned = true;
-        refreshSkillPanel();
-        showToast('sparkle', '本机网关已连接，发现 '+LOCAL_CANDIDATES.length+' 项候选能力（模拟数据，默认未授权）');
-      }, 850);
-      return;
-    }
+    if(e.target.closest('#btn-gw-pair')){ pairGateway(); return; }
+    if(e.target.closest('#btn-gw-unpair')){ unpairGateway(); return; }
+    if(e.target.closest('#btn-gw-scan')){ scanGateway(); return; }
     const installBtn = e.target.closest('[data-market-install]');
     if(installBtn){
       const id = installBtn.dataset.marketInstall;

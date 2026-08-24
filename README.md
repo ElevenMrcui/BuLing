@@ -63,9 +63,10 @@ make db                              # 起 Postgres + Redis
 make generate && make migrate        # Prisma
 pnpm --filter @buling/api prisma:seed
 make dev                             # API :13500 + Web :13000
+make gateway                         # 另开一个终端：本地网关（Mac CLI 扫描）
 ```
 
-详细步骤与 E2E 演示见 [`docs/骨架启动指南.md`](docs/骨架启动指南.md)。
+详细步骤与 E2E 演示见 [`docs/骨架启动指南.md`](docs/骨架启动指南.md)；本地网关的安全底线与协议见 [`docs/本地网关.md`](docs/本地网关.md)。
 
 ---
 
@@ -82,9 +83,12 @@ make dev                             # API :13500 + Web :13000
 │   └── index.html                  高保真可交互原型（单文件、零依赖）
 ├── apps/
 │   ├── api/                        NestJS + Fastify + Prisma（R1 骨架）
-│   └── web/                        Next.js 14 App Router（R1 E2E 演示）
+│   ├── web/                        Next.js 14 App Router（R1 E2E 演示）
+│   └── local-gateway/              用户本机守护进程；127.0.0.1 + X-Gateway-Token
+│                                   `make gateway` 起，供「本机发现」扫描 AI 厂商 CLI
 ├── packages/
-│   └── shared/                     前后端契约唯一真源（DTO / 枚举）
+│   ├── shared/                     前后端契约唯一真源（DTO / 枚举）
+│   └── cli-registry/               AI 厂商 CLI 签名注册表（Claude Code / Codex / Gemini / Ollama …）
 ├── infra/
 │   └── docker-compose.yml          Postgres + Redis
 └── docs/
@@ -92,7 +96,8 @@ make dev                             # API :13500 + Web :13000
     ├── 产品原型说明.md              原型规格
     ├── 协作机制设计.md              三层机制矩阵 · 评审红线 · 设计取舍
     ├── 企业级架构与落地方案.md      技术选型 / 架构图 / 模块拆分 / 数据模型 / API / R1-R3 路线图
-    └── 骨架启动指南.md              R1 骨架三分钟跑起来
+    ├── 骨架启动指南.md              R1 骨架三分钟跑起来
+    └── 本地网关.md                  local-gateway 协议 / 安全底线 / 集成契约
 ```
 
 ---

@@ -1,4 +1,4 @@
-.PHONY: help install db db-down db-logs migrate generate dev api web build lint typecheck test clean
+.PHONY: help install db db-down db-logs migrate generate dev api web gateway build lint typecheck test clean
 
 help:
 	@echo "常用命令："
@@ -10,6 +10,7 @@ help:
 	@echo "  make dev        并行启动 API 与 Web（依赖需先 make db）"
 	@echo "  make api        仅启动 API (http://localhost:13500)"
 	@echo "  make web        仅启动 Web (http://localhost:13000)"
+	@echo "  make gateway    启动本地网关 (http://127.0.0.1:17817) —— 用于扫描本机 AI CLI"
 	@echo "  make typecheck  全仓 TS 类型检查"
 	@echo "  make lint       全仓 Lint"
 	@echo "  make test       全仓单测"
@@ -44,6 +45,9 @@ api:
 
 web:
 	pnpm --filter @buling/web dev
+
+gateway:
+	pnpm --filter @buling/local-gateway start
 
 build:
 	pnpm build
