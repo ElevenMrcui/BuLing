@@ -18,7 +18,11 @@ Tauri 2 桌面壳 · React + TypeScript 前端 · Rust 后端（复用 `runtime/
 
 前端首页展示项目中心 + 工作流中心 + 三块状态，作为"Runtime + Storage + Provider + Agent + Project + Workflow + Task 七层打通"的最小可视证据。
 
-**尚未做**：没有真实图形环境跑一次窗口级冒烟（这个沙箱没有显示服务器）——目前的验证止于 `cargo build` 编译通过 + 各 runtime crate 自身的单测/集成测试覆盖了 IPC 命令背后调用的逻辑。真机上打开窗口验证仍是待办。
+**窗口级冒烟已验证**（Xvfb 虚拟显示 + release 二进制，非真机物理屏幕）：`cargo build --release` 编译出的二进制在 `DISPLAY=:99`（Xvfb）下真的启动、渲染出了完整 UI（项目中心表单 + 存储层状态卡片，`APP 库版本=2`/`就绪=✓`/`预置岗位=9 位`，证明后端真的初始化了 SQLite 并跑完迁移+播种），截图确认非空白帧。过程中发现并修了一个真实崩溃：`icons/icon.png` 是个 8×8 的占位文件，被 `tao`/`gdk-pixbuf` 解析窗口图标时直接 panic（`data.len() must fit the width, height, and row_stride`）——用 `pnpm exec tauri icon` 从品牌色块 + "令" 字重新生成了整套桌面图标（`icons/*.png`/`.ico`/`.icns`），修完就能正常起窗口了。
+
+**打包也验证过**：`pnpm exec tauri build -b deb -c '{"bundle":{"active":true}}'`（一次性覆盖 `tauri.conf.json` 里默认关闭的 `bundle.active`，没有改动提交的配置）成功产出 `不令 OPC_0.1.0_amd64.deb`（~7MB，`dpkg-deb --info` 校验元数据正常，依赖声明 `libwebkit2gtk-4.1-0`/`libgtk-3-0`）。要长期打开打包，把 `tauri.conf.json` 的 `bundle.active` 改成 `true` 即可，这是个有意的构建行为开关，不是 bug，本次没有改动它。
+
+**仍未做**：真机（非虚拟显示）上的窗口验证；macOS/Windows 平台打包（这个 sandbox 是 Linux，只验证了 `.deb`；`.dmg`/`.msi` 需要对应平台环境）。
 
 ## 规划的目录
 

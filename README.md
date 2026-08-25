@@ -111,7 +111,7 @@
 │       ├── product/ · technical/ · project/ · design/ · qa/ · acceptance/
 │
 ├── apps/
-│   ├── desktop/                     ✅ Tauri 2 桌面壳（骨架已落地 · 可 cargo build）
+│   ├── desktop/                     ✅ Tauri 2 桌面壳（骨架已落地 · 窗口级冒烟已验证 · 可打包 .deb）
 │   │   ├── package.json             Vite + React + @tauri-apps/api
 │   │   ├── src/                     React 前端（项目中心 + 存储层状态 + 预置岗位 + Provider 发现列表）
 │   │   └── src-tauri/               Rust 后端（薄壳 · 引用 opc-storage + opc-provider + opc-agent + opc-project + opc-workflow + opc-task）
