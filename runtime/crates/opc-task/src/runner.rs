@@ -40,5 +40,5 @@ pub async fn run_assigned_task(
         });
     }
 
-    Ok(opc_workflow::run_task_node(project_db, project_root, registry, agent_defs, &task, node).await?)
+    Ok(opc_workflow::run_task_node(project_db, project_root, registry, agent_defs, &dag, &task, node).await?)
 }

@@ -459,7 +459,7 @@ async fn opc_workflow_run_task(
     let dag = opc_workflow::load_dag(&project_db, &workflow_id).await.map_err(|e| format!("load_dag: {e}"))?;
     let node = dag.nodes.iter().find(|n| n.id == node_key).ok_or_else(|| format!("dag 里找不到节点「{node_key}」"))?;
 
-    let result = opc_workflow::run_task_node(&project_db, &project_root, &registry, &agent_defs, &task, node)
+    let result = opc_workflow::run_task_node(&project_db, &project_root, &registry, &agent_defs, &dag, &task, node)
         .await
         .map_err(|e| format!("run_task_node: {e}"))?;
     Ok(TaskRunInfo { task_run_id: result.task_run_id, provider_id: result.provider_id, artifact_ids: result.artifact_ids })

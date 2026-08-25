@@ -93,10 +93,10 @@ Tauri IPC `opc_create_project` / `opc_list_projects` 已联通，桌面壳「项
 
 - `template::load_templates_from_dir()` —— 解析模板成 `WorkflowTemplate`；`parallel` 分组节点在加载时就地拍平成独立节点，组级 `depends_on` 并入每个子节点；节点依赖不只看显式 `depends_on`，还会从 `inputs`（`templates/README.md` 里"只声明依赖，Runtime 自动注入"那句话字面意思）和 `human` 节点的 `subject` 推导补全
 - `instantiate::instantiate_workflow()` —— 建 `workflows` 行（`dag` 存整份模板 JSON 快照）+ 逐节点建 `tasks` 行（`assignment=template` 的 Agent 节点顺带用 `opc_project::find_agent_instance_id()` 解析出 `assigned_agent_id`）+ 逐 Gate 建 `gates` 行
-- `runner::list_ready_agent_tasks()` / `run_task_node()` —— 只驱动 `kind=agent · assignment=template` 且依赖已满足的节点：调 `opc_agent::run_task()` 拿文本 → 对节点声明的每个 output 调 `opc_tool::write_and_register_artifact()` 落盘登记 → 写 `task_runs` → 标记完成
+- `runner::list_ready_agent_tasks()` / `run_task_node()` —— 只驱动 `kind=agent · assignment=template` 且依赖已满足的节点：解析 `node.inputs` 把上游节点真实落盘的 Artifact 内容（`"<node_id>"` 注入整节点全部 output，`"<node_id>.output.<kind>"` 只注入一个；`__goal__` 从 `project_meta.goal` 取用户最初的目标）拼进 Prompt → 调 `opc_agent::run_task()` 拿文本 → 对节点声明的每个 output 调 `opc_tool::write_and_register_artifact()` 落盘登记 → 写 `task_runs` → 标记完成
 - `gate::approve_gate()` / `reject_gate()` —— **评审红线的唯一入口**，`runner` 永远不会自动把 `kind=human` 节点标完成。`reject_gate` 把 `on_reject.goto` 指向的节点重置回 `pending`，操作化"打回重做"
 
-**这一版没做的事**（诚实标注）：`human`/`condition` 节点不自动推进（前者是红线要求，后者是没有表达式求值器）；`manual`/`auto-claim` 节点不解析执行；不把上游 Artifact 内容注入 Prompt，只给通用指令；打回不做下游级联失效。见 `docs/OPC-架构决策.md` ADR-005 附注 5。
+**这一版没做的事**（诚实标注）：`human`/`condition` 节点不自动推进（前者是红线要求，后者是没有表达式求值器）；`manual`/`auto-claim` 节点不解析执行；一次 Provider 调用的同一段文本原样写进节点声明的每一个 output（不会拆成几份不同内容的文件）；`node.inputs` 引用到 `frontend/**` 这类目录 glob 契约的 output 时读不到内容会静默跳过；打回不做下游级联失效。见 `docs/OPC-架构决策.md` ADR-005 附注 5、7。
 
 Tauri IPC `opc_create_project`（加了 `template_id` 参数）+ `opc_workflow_tasks` / `opc_workflow_ready_tasks` / `opc_workflow_run_task` / `opc_workflow_gates` / `opc_workflow_approve_gate` / `opc_workflow_reject_gate` 已联通，桌面壳新增「工作流中心」卡片。
 

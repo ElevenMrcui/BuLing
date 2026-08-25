@@ -13,7 +13,7 @@ use opc_workflow::{
     run_task_node, WorkflowTemplate,
 };
 use tempfile::TempDir;
-use wiremock::matchers::{method, path as wpath};
+use wiremock::matchers::{body_string_contains, method, path as wpath};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn runtime_root() -> PathBuf {
@@ -221,7 +221,7 @@ async fn full_chain_run_entry_node_then_gate_unlocks_next_phase() {
     let prd_node = template.nodes.iter().find(|n| n.id == "prd").unwrap();
 
     let result =
-        run_task_node(&created.project_db, &project_root, &registry, &agent_defs, &prd_task, prd_node)
+        run_task_node(&created.project_db, &project_root, &registry, &agent_defs, &template, &prd_task, prd_node)
             .await
             .unwrap();
     assert_eq!(result.artifact_ids.len(), 3, "prd 节点声明了 3 个 output");
@@ -281,7 +281,7 @@ async fn reject_gate_resets_target_node_back_to_ready() {
     let ready = list_ready_agent_tasks(&created.project_db, &instantiated.workflow_id).await.unwrap();
     let prd_task = ready.into_iter().find(|t| t.node_key == "prd").unwrap();
     let prd_node = template.nodes.iter().find(|n| n.id == "prd").unwrap();
-    run_task_node(&created.project_db, &project_root, &registry, &agent_defs, &prd_task, prd_node).await.unwrap();
+    run_task_node(&created.project_db, &project_root, &registry, &agent_defs, &template, &prd_task, prd_node).await.unwrap();
 
     // 此时 prd 已 completed，不在 ready 集合
     assert!(list_ready_agent_tasks(&created.project_db, &instantiated.workflow_id).await.unwrap().is_empty());
@@ -316,4 +316,110 @@ async fn reject_gate_resets_target_node_back_to_ready() {
             .await
             .unwrap();
     assert_eq!(rejected_count, 1);
+}
+
+/// `tech_selection` 节点声明 `inputs: [prd]`（裸节点 id，见 `templates/README.md`：
+/// "只声明依赖，Runtime 自动注入"）。这条测试证明它不再是一句通用指令——
+/// Provider 真的收到了 `prd` 节点已经落盘的内容。用两条互斥的 body 匹配条件
+/// 的 mock 做到：mock A 只认 `prd` 自己的请求；mock B 必须同时看到
+/// "节点「tech_selection」"和 `prd` 产出里的真实文本才应答，应答的内容跟
+/// mock A 完全不同——最终落盘内容能对上 mock B，就证明命中的是那条要求带
+/// 真实上游内容的 mock，而不是巧合命中了别的。
+#[tokio::test]
+async fn run_task_node_injects_upstream_artifact_content_into_next_node_prompt() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(wpath("/chat/completions"))
+        .and(body_string_contains("节点「prd」"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "choices": [{"message": {"content": "# PRD\n\n真实产出内容"}}],
+            "usage": {"prompt_tokens": 4, "completion_tokens": 9}
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(wpath("/chat/completions"))
+        .and(body_string_contains("节点「tech_selection」"))
+        .and(body_string_contains("真实产出内容"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "choices": [{"message": {"content": "# 技术选型\n\n用 Rust + Tauri"}}],
+            "usage": {"prompt_tokens": 4, "completion_tokens": 9}
+        })))
+        .mount(&server)
+        .await;
+
+    let manifests_dir = TempDir::new().unwrap();
+    write_manifest(manifests_dir.path(), "test-api", &server.uri());
+    let registry = ProviderRegistry::load_from_dir(manifests_dir.path()).unwrap();
+
+    let (_dir, _app_db, created, project_root) = setup_project().await;
+    let template = real_template();
+    let mut agent_defs = real_agents();
+    for a in &mut agent_defs {
+        a.provider_priority = vec!["test-api".to_string()];
+    }
+
+    let instantiated = instantiate_workflow(&created.project_db, &template).await.unwrap();
+
+    let ready = list_ready_agent_tasks(&created.project_db, &instantiated.workflow_id).await.unwrap();
+    let prd_task = ready.into_iter().find(|t| t.node_key == "prd").unwrap();
+    let prd_node = template.nodes.iter().find(|n| n.id == "prd").unwrap();
+    run_task_node(&created.project_db, &project_root, &registry, &agent_defs, &template, &prd_task, prd_node)
+        .await
+        .unwrap();
+
+    approve_gate(&created.project_db, &instantiated.workflow_id, "requirement-gate", "user", None).await.unwrap();
+
+    let ready = list_ready_agent_tasks(&created.project_db, &instantiated.workflow_id).await.unwrap();
+    let tech_task = ready.into_iter().find(|t| t.node_key == "tech_selection").unwrap();
+    let tech_node = template.nodes.iter().find(|n| n.id == "tech_selection").unwrap();
+
+    let result =
+        run_task_node(&created.project_db, &project_root, &registry, &agent_defs, &template, &tech_task, tech_node)
+            .await
+            .unwrap();
+    assert_eq!(result.artifact_ids.len(), 2, "tech_selection 声明了 2 个 output");
+
+    let tech_stack = std::fs::read_to_string(project_root.join("docs/technical/Technology-Stack.md")).unwrap();
+    assert_eq!(
+        tech_stack, "# 技术选型\n\n用 Rust + Tauri",
+        "命中了要求 body 里带 prd 真实内容的那条 mock，证明上游 Artifact 内容真的注入进了 Prompt"
+    );
+}
+
+/// `prd` 节点声明 `inputs: [__goal__]`——用户最初的目标要能从 `project_meta.goal`
+/// 里被读出来拼进 Prompt，不是空字符串占位。
+#[tokio::test]
+async fn run_task_node_injects_user_goal_for_entry_node() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(wpath("/chat/completions"))
+        .and(body_string_contains("做一个健康管理 App"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "choices": [{"message": {"content": "# PRD"}}],
+            "usage": {"prompt_tokens": 4, "completion_tokens": 9}
+        })))
+        .mount(&server)
+        .await;
+
+    let manifests_dir = TempDir::new().unwrap();
+    write_manifest(manifests_dir.path(), "test-api", &server.uri());
+    let registry = ProviderRegistry::load_from_dir(manifests_dir.path()).unwrap();
+
+    let (_dir, _app_db, created, project_root) = setup_project().await;
+    let template = real_template();
+    let mut agent_defs = real_agents();
+    for a in &mut agent_defs {
+        a.provider_priority = vec!["test-api".to_string()];
+    }
+
+    let instantiated = instantiate_workflow(&created.project_db, &template).await.unwrap();
+    let ready = list_ready_agent_tasks(&created.project_db, &instantiated.workflow_id).await.unwrap();
+    let prd_task = ready.into_iter().find(|t| t.node_key == "prd").unwrap();
+    let prd_node = template.nodes.iter().find(|n| n.id == "prd").unwrap();
+
+    // 没匹配到 mock（body 里没带 goal 文本）Provider 调用会失败，`.unwrap()` 直接 panic。
+    run_task_node(&created.project_db, &project_root, &registry, &agent_defs, &template, &prd_task, prd_node)
+        .await
+        .unwrap();
 }

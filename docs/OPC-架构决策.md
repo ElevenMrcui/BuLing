@@ -240,6 +240,17 @@ Rust 端用 `keyring` crate 统一封装。
 
 **下一步（P0.5+）**：`qa_gate` 这类 `condition` 节点的表达式求值器；"一次 Agent 产出一整个目录的多份具名文件"这个新的执行模型（会让 `frontend_dev`/`backend_dev`/`bug_fix` 真正跑起来）；`opc-privacy`/`opc-audit` 补齐 execution_logs 的写入路径。
 
+### ADR-005 附注 7 · 上游 Artifact 内容真的注入 Prompt 了（P0.5）
+
+补附注 5 留的最大一个诚实缺口：`run_task_node()` 以前只给 Agent 一句"请完成工作流节点「xxx」，产出：yyy"的通用指令，`node.inputs` 声明的依赖只用来推导 `depends_on`，从没真正读进 Prompt——"读上游 PRD 写架构"这种上下文传递是假的。
+
+- **`runner.rs` 新增 `build_prompt()`**：解析 `node.inputs` 的每个 token，按 `templates/README.md` 的语义分两种：`"<node_id>"`（裸节点 id）——注入该节点全部 output；`"<node_id>.output.<kind>"`（如 `prd.output.acceptance`）——只注入这一个具体 output。解析出目标节点声明的 `output.path` 后，直接从磁盘按这个路径 `tokio::fs::read_to_string`——不查 `artifacts` 表，因为 `write_and_register_artifact()` 本来就是原样写到这个路径，磁盘内容即最新版本，不需要多一层间接查询。`"__goal__"` 单独处理，从 `project_meta.goal`（单行表）里取用户最初的目标文本。
+- **读不到就跳过，不报错**：引用到 `frontend/**` 这类目录 glob 契约的 output（`assignment=manual`/`auto-claim` 节点常见）没法当单文件读，静默跳过；文件因为某种原因还没落盘也一样跳过。这是有意的宽松——`depends_on`（含 `augment_depends_on_from_inputs` 补的隐式依赖）已经保证"引用的节点跑完了才轮到当前节点"，这里出意外不该炸掉整个节点执行，只应该降级成"这部分上下文拿不到"。
+- **签名变了**：`run_task_node()` 新增 `dag: &WorkflowTemplate` 参数（原来的调用方 `opc-task::run_assigned_task()`、桌面壳 `opc_workflow_run_task` IPC 早就为了拿 `TemplateNode` 而加载过一份 DAG，顺手传进来即可，不用重新查库）。
+- **测试怎么证明不是摆设**：新增两条集成测试，用 wiremock 的 `body_string_contains` 卡两个互斥条件——一条 mock 只认"节点「prd」"，另一条必须同时看到"节点「tech_selection」"和 `prd` 落盘的真实文本才应答，且两条 mock 的应答内容完全不同。落盘的 `tech_selection` 产出内容能对上"要求带上游真实内容"那条 mock 的应答，就证明 Provider 确实收到了注入后的 Prompt，不是巧合命中。另一条测试同理验证 `__goal__` 能从 `project_meta.goal` 读出来。workspace 累计 55 个测试全绿。
+
+**这一版仍然没做的事**：一次 Provider 调用的同一段文本仍然原样写进节点声明的每一个 output 路径（附注 5 的简化 1 还在）；`output.path` 是目录 glob 契约的节点仍然不驱动（附注 5 的简化 2 还在）——这两条跟"读上游内容"是两件独立的事，这次没有顺手动它们。
+
 ---
 
 ## ADR-006 · 依赖沿用：`apps/local-gateway` 与 `packages/cli-registry` 短期保留

@@ -148,12 +148,12 @@ pnpm install
 
 # —— Runtime（Rust · SQLite 存储） ——
 make runtime-check        # cargo check
-make runtime-test         # 53 个测试：opc-storage 3 个（app/project db + FTS5）
+make runtime-test         # 55 个测试：opc-storage 3 个（app/project db + FTS5）
                           #           + opc-provider 11 个（CLI adapter 单测 + wire format 集成测试）
                           #           + opc-agent 6 个（YAML 加载 + 播种幂等性 + Provider fallback）
                           #           + opc-tool 8 个（沙箱路径校验 + Artifact 版本化 + 端到端胶水）
                           #           + opc-project 8 个（创建/打开/列出项目 + Agent 实例化 + 端到端胶水）
-                          #           + opc-workflow 7 个（模板加载 + DAG 实例化 + 驱动执行 + Gate 通过/打回）
+                          #           + opc-workflow 9 个（模板加载 + DAG 实例化 + 驱动执行 + Gate 通过/打回 + 上游 Artifact 内容注入 Prompt）
                           #           + opc-task 10 个（能力匹配认领打分 + 手动指派 + 驱动已指派节点执行）
 
 # —— 桌面 App（Tauri 2） ——
@@ -242,7 +242,7 @@ health-app/
 ### 6. 命令行验证（不想开图形界面时）
 
 ```bash
-make runtime-test   # 跑全部 53 个 Rust 集成/单元测试，验证 Storage/Provider/Agent/Tool/Project/Workflow/Task 七层逻辑
+make runtime-test   # 跑全部 55 个 Rust 集成/单元测试，验证 Storage/Provider/Agent/Tool/Project/Workflow/Task 七层逻辑
 make desktop-check  # 无窗口验证前端 + Rust 后端都能编译
 ```
 

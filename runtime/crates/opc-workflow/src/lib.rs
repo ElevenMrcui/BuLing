@@ -15,7 +15,8 @@
 //! - `human` 节点不自动推进——这是评审红线本身要求的，不是缺口
 //! - `condition` 节点（表达式判断）不求值，会一直停在 `pending`
 //! - `manual` / `auto-claim` 节点不解析 `assigned_agent_id`，不会被驱动
-//! - 不把上游节点的 Artifact 内容注入 Prompt，只给一句通用指令
+//! - `node.inputs` 引用到 `frontend/**` 这类目录契约 output 时读不到内容会
+//!   静默跳过（见 `runner::read_input_context`），不会报错中断执行
 //! - `reject_gate` 打回不做下游级联失效，只重置 `on_reject.goto` 直接点名的节点
 //!
 //! 见 `docs/OPC-架构决策.md` ADR-005 附注 5。
