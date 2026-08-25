@@ -131,6 +131,8 @@ Provider Router 按序尝试；第一个 `status=connected` 的命中。方便"�
 
 **为什么不做 Git 化的 diff？** P0 简化，用 file_hash 判断有无变化 + 每版单独存 hash。P1 引入内容 diff（可选）。
 
+**Rust 实现**：`runtime/crates/opc-tool::artifact::write_and_register_artifact()`——写文件 + upsert `artifacts` + 追加 `artifact_versions` 在一个 sqlx 事务内完成。**`producer_agent_id` 外键指向 `agent_instances(id)`，不是 `app.sqlite.agents` 的预置 id**——写 Artifact 前，产出它的 Agent 必须已经在这个项目里"实例化"（有一行 `agent_instances`），否则 FK 直接拒绝写入。见 `docs/OPC-架构决策.md` ADR-005 附注 3。
+
 ### 3.9 `gates`
 每个 workflow 里的关键卡点。`kind='acceptance-gate'` 由品牌硬约束——`required=true` 永远不可跳过。
 

@@ -78,7 +78,8 @@
 │       ├── opc-storage/             ✅ sqlx + SQLite · migrator · AppDb + ProjectDb（3 测试）
 │       ├── opc-provider/            ✅ Provider trait · CLI/API/Local 抽象 · 11 家厂商（11 测试）
 │       │                            见 providers/README.md
-│       └── opc-agent/               ✅ 加载 agents/*.yaml · 播种 app.sqlite · 驱动一次 Provider 执行（6 测试）
+│       ├── opc-agent/               ✅ 加载 agents/*.yaml · 播种 app.sqlite · 驱动一次 Provider 执行（6 测试）
+│       └── opc-tool/                ✅ 项目内文件写入（沙箱化）+ Artifact 登记（8 测试）
 │
 ├── providers/                       AI 能力源 manifest（CLI / API / Local · 11 家）
 │   ├── README.md                    manifest 格式 · Provider trait · 加厂商步骤
@@ -139,9 +140,10 @@ pnpm install
 
 # —— Runtime（Rust · SQLite 存储） ——
 make runtime-check        # cargo check
-make runtime-test         # 20 个测试：opc-storage 3 个（app/project db + FTS5）
+make runtime-test         # 28 个测试：opc-storage 3 个（app/project db + FTS5）
                           #           + opc-provider 11 个（CLI adapter 单测 + wire format 集成测试）
                           #           + opc-agent 6 个（YAML 加载 + 播种幂等性 + Provider fallback）
+                          #           + opc-tool 8 个（沙箱路径校验 + Artifact 版本化 + 端到端胶水）
 
 # —— 桌面 App（Tauri 2） ——
 make desktop-check        # 无窗口 · 前端 typecheck+build + Rust cargo check

@@ -170,6 +170,19 @@ Rust 端用 `keyring` crate 统一封装。
 
 **未做的事**（刻意留给 `opc-workflow`）：工具调用循环、Artifact 落盘、强制产出 Report.md、认领意愿分——`run_task` 现在只是"喂一句话，吐一段文本回来"。
 
+### ADR-005 附注 3 · `runtime/crates/opc-tool` 落地（P0.5）—— 产出真正落盘
+
+`opc-agent::run_task` 吐出的文本到这一层才算真正"交付"：写进项目目录的文件，并登记进 `project.sqlite`。P0 最小切片只做一件事到位，不铺开做 shell/git/http 等其它 Tool。
+
+- **`fs_tool`**：沙箱化写入，对齐 `permission_defaults.file = "project-only"`——词法归一化路径（不要求父目录已存在，因为写入场景经常还没建目录）后校验落在项目根以内，拒绝绝对路径和 `..` 穿越，不看真实文件系统状态（不 `canonicalize`，因为目标文件可能是首次创建）
+- **`artifact`**：`write_and_register_artifact()` 一个事务内做完"写文件 + upsert `artifacts` + 追加 `artifact_versions`"——避免"文件写了但库没记"或反过来的半成品状态。同一 `file_path` 再次写入 = 新版本（`latest_version` 递增），旧版本记录不删（`artifact_versions` 是 append-only，见 `docs/OPC-数据模型.md` §7）
+
+**踩到的一个 schema 细节**：`artifacts.producer_agent_id` 外键指向 `agent_instances(id)`（**项目内实例**，不是 `app.sqlite.agents` 的预置 id）——测试第一次跑直接传 `agents/*.yaml` 里的 `product-manager` 当 producer_agent_id 会 FK 报错，因为这个 id 在项目库里根本不存在对应的 `agent_instances` 行。修法是先種一条最小 `teams` + `agent_instances`，而不是绕过外键约束——这提前暴露了一个后续 `opc-project`/`opc-agent` 必须补的环节：**Agent 要在某个项目里"实例化"（fork 出 `agent_instances` 行）之后，它的产出才能合法地登记为 Artifact**。
+
+**测试**：8 个（4 单测覆盖路径穿越校验的边界情况 + 4 集成测试覆盖首次写入 / 重写版本递增+历史保留 / 越界拒绝 / 端到端胶水——真跑一个 Agent（wiremock）→ 把它的产出写进项目并登记，证明 `opc-agent` 与 `opc-tool` 能拼起来用）。workspace 累计 28 个测试全绿。
+
+**下一步（P0.5+）**：`opc-project` 把"创建项目 → 实例化 Team/Agent"这条链补上，这样 `producer_agent_id` 才有一个真实来源，而不是测试里手工种的行；`opc-workflow` 把 `run_task` + `write_and_register_artifact` 接进 DAG 节点，让"一个岗位跑完 → 自动落盘 → 触发下游"整条链自动化。
+
 ---
 
 ## ADR-006 · 依赖沿用：`apps/local-gateway` 与 `packages/cli-registry` 短期保留

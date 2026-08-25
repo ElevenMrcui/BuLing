@@ -28,10 +28,10 @@ runtime/
 │   │                                见 §Provider 层 与 providers/README.md
 │   ├── opc-agent/                 ✅ 加载 agents/*.yaml · 播种 app.sqlite · 驱动一次 Provider 执行（6 测试）
 │   │                                见 §Agent 层
+│   ├── opc-tool/                  ✅ 项目内文件写入（沙箱化）+ Artifact 登记（8 测试）见 §Tool 层
 │   ├── opc-project/                Project 创建 / 打开 / 归档 · .opc/ 目录布局
 │   ├── opc-task/                  Task 生命周期 · TaskRun 调度 · 认领意愿分
 │   ├── opc-workflow/               DAG 引擎 · 节点触发 · Gate 处理 · 循环 / 条件
-│   ├── opc-tool/                  Tool 层（fs / shell / git / http / db）+ 权限系统
 │   ├── opc-mcp/                   MCP client
 │   ├── opc-privacy/                隐私哨兵：外发拦截 / 数据脱敏
 │   └── opc-audit/                 ExecutionLog append-only 写入
@@ -62,6 +62,17 @@ runtime/
 Tauri App 每次冷启动都会重新播种（`src-tauri/src/lib.rs` 的 `get_app_db()` 里），保证仓库里改了 Agent YAML 后用户下次开 App 就同步。
 
 职责边界：`run_task` 只是"一次文本补全"，不强制产出 Artifact / 不校验 Report.md——那些是 `opc-workflow` 的事。
+
+## Tool 层（`opc-tool`，已落地）
+
+把 `opc-agent::run_task` 吐出的文本真正落到项目目录，并登记进 `project.sqlite`。
+
+- `fs_tool::write_text_file()` —— 沙箱化写入，对齐 `permission_defaults.file = "project-only"`：词法归一化路径后校验落在项目根以内，拒绝绝对路径 / `..` 穿越
+- `artifact::write_and_register_artifact()` —— 一个事务内完成"写文件 + upsert `artifacts` + 追加 `artifact_versions`"；同一 `file_path` 再次写入 = 新版本，旧版本记录不删（append-only）
+
+**关键约束**：`artifacts.producer_agent_id` 外键指向 `agent_instances(id)`（项目内实例），不是 `app.sqlite.agents` 的预置 id——一个 Agent 要先在某个项目里"实例化"，它的产出才能合法登记。这个环节现在还没有生产路径（`opc-project` 待建），测试里手工种最小 `teams` + `agent_instances` 行来满足外键。
+
+职责边界：只做"写 + 登记"这一件事，不做 shell/git/http 等其它 Tool，不做权限 prompt 弹窗确认——那些留给后续切片。
 
 ## 双层 SQLite 布局
 
@@ -111,8 +122,8 @@ Tauri App 每次冷启动都会重新播种（`src-tauri/src/lib.rs` 的 `get_ap
 1. ✅ `opc-storage` —— 连库 / 跑 migration / AppDb + ProjectDb
 2. ✅ `opc-provider` —— Provider trait + CliProvider(Claude Code) + ApiProvider(11 家厂商) + ProviderRegistry；Tauri IPC `opc_providers` 已联通
 3. ✅ `opc-agent` —— 加载 `agents/*.yaml` seed 到 app.sqlite + select_provider/run_task 闭环；Tauri IPC `opc_agents` 已联通，冷启动自动重新播种
-4. `opc-project` —— 创建 project 目录 + project.sqlite
-5. `opc-workflow` —— 加载 `templates/*.yaml` + DAG 实例化
-6. `opc-task` —— Task 生命周期，把 `opc-agent::run_task` 接进节点执行
-7. `opc-tool` —— 至少接通 fs.write / shell.run，`run_task` 的产出真正落盘成 Artifact
+4. ✅ `opc-tool` —— fs.write（沙箱化）+ Artifact 登记；`run_task` 的产出能真正落盘（Tauri 未联通——还没有"当前打开的项目"这个概念，见下一条）
+5. `opc-project` —— 创建 project 目录 + project.sqlite + 把预置 Agent"实例化"进 `agent_instances`（`opc-tool` 的 `producer_agent_id` 外键需要这个）
+6. `opc-workflow` —— 加载 `templates/*.yaml` + DAG 实例化，把 `run_task` + `write_and_register_artifact` 接进节点
+7. `opc-task` —— Task 生命周期 · TaskRun 调度 · 认领意愿分
 8. `opc-privacy` + `opc-audit` —— 每次外发和 tool 调用都写日志

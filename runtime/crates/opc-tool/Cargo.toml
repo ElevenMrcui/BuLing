@@ -1,0 +1,24 @@
+[package]
+name = "opc-tool"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "不令 OPC Tool 层 · 项目内文件写入（沙箱化）+ Artifact 登记"
+
+[dependencies]
+opc-storage = { path = "../opc-storage" }
+sha2 = { workspace = true }
+uuid = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+opc-agent = { path = "../opc-agent" }
+opc-provider = { path = "../opc-provider" }
+serde_json = { workspace = true }
+tempfile = "3"
+tokio = { workspace = true, features = ["full", "test-util"] }
+wiremock = "0.6"
