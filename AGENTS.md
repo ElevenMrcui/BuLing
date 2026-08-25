@@ -1,166 +1,218 @@
-# 仓库开发规则（Repository Guidelines）
+# AGENTS.md · 仓库开发规则（权威源）
 
-> **新 Agent 首次接手**：先读 [`docs/项目开发须知.md`](docs/项目开发须知.md)（~15 分钟统一入口，涵盖身份 / 硬约束 / 分支 / checklist / 设计先行 / 编码 / 测试 / 文档 / commit / 陷阱 / 第一天上手清单）。本文（AGENTS.md）是详细规则的权威源，须知是精炼指针层。
+本文是**不令 OPC** 仓库的开发规则权威源。首次接手请先读 [`CLAUDE.md`](CLAUDE.md)（分支政策 + 硬约束 + 命名 + 文档地图，精简指针）再读本文（详细规则）。
 
----
-
-## 项目当前阶段
-
-**不令（BuLing）当前同时承载两个阶段的交付物**：
-
-1. **产品原型**：`prototype/index.html`（单文件零依赖）——评审 / 演示用
-2. **企业级 R1 骨架**：`apps/api` (NestJS 10 + Fastify + Prisma) + `apps/web` (Next.js 14) + `packages/shared` + `prisma` + `infra`（Postgres + Redis via Docker Compose）——已跑通"发布 → 认领 → 完成步骤 → 人工评审（红线）"完整链路
-
-**技术栈已定稿**：Node.js 22 + TypeScript 全栈；私有化部署优先；详细论证与分期路线图见 [`docs/企业级架构与落地方案.md`](docs/企业级架构与落地方案.md)。R2 待办清单在方案 § 13。
-
-凡触及技术栈以外未定的业务规则（权限 / 计费 / 合规），仍遵守 §「不臆造」：标"待确认"交用户裁决。
+产品全景 → [`docs/OPC-产品定义.md`](docs/OPC-产品定义.md)
+本地网关 → [`docs/本地网关.md`](docs/本地网关.md)
 
 ---
 
-## 交接阅读顺序（新 Agent · 5-15 分钟分级）
+## 0. 项目速览
 
-| # | 文档 | 时长 | 作用 |
-|---|---|---|---|
-| 1 | [`docs/项目开发须知.md`](docs/项目开发须知.md) | 15 min | **主入口** · 身份 · 硬约束 · 分支 · 六步开发纪律 · 编码规范 · 测试 · 文档 · Commit · 常见陷阱 · 第一天上手清单 |
-| 2 | [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md) | 5 min | 分支政策 · design-first flow · 文档地图 |
-| 3 | [`docs/产品原型说明.md`](docs/产品原型说明.md) | 10 min | 原型规格：页面 / 数据模型 / 交互 / mock 边界 |
-| 4 | [`docs/协作机制设计.md`](docs/协作机制设计.md) | 10 min | 三层机制矩阵 · 红线 · 设计取舍（改动交互前必读，避免破坏不变量） |
+**不令 OPC**：Local-First 的私人 AI 公司桌面应用。用户提出目标，OPC 组织 AI 团队（产品经理 · 技术负责人 · 架构师 · 项目经理 · 设计师 · 前端 · 后端 · 测试 · 验收）完成完整项目交付。
 
-**5 分钟极简版**（立即开工）：
+**当前仓库处在 pivot 后重启期**——旧「不令 · 企业级协作平台」骨架已归档到 `legacy/`，OPC 新架构（Tauri 2 + React + Rust Runtime + SQLite）正在筹备 P0。
 
-1. 读 [`docs/项目开发须知.md`](docs/项目开发须知.md) §0-3（速览 + 硬约束 + 分支 + Pre-Dev checklist）。
-2. 用浏览器打开 `prototype/index.html`，把五个页面点一遍，形成手感。
-3. `git fetch origin claude/bulei-platform-prototype-dw7wxw && git status -sb` · 开工。
+**现存可跑的东西**：
+- `apps/local-gateway/`（Node/TS · Fastify · 只监听 127.0.0.1 · Token 鉴权 · 扫描本机 AI CLI）——未来会升级为 OPC Runtime 的 CLI 执行层
+- `packages/cli-registry/`（10 家 AI 厂商 CLI 签名注册表）
 
 ---
 
-## 每次开发前必做（Pre-Development Checklist）
+## 1. 硬约束（不可违背）
 
-每次开始 / 接手开发，按顺序完成，不要凭记忆、也不要翻聊天记录：
+沿用 [`CLAUDE.md`](CLAUDE.md) 里的清单，展开说明：
 
-1. **恢复上下文**：读 [`docs/产品原型说明.md`](docs/产品原型说明.md) 了解原型现状；改动协作交互前读 [`docs/协作机制设计.md`](docs/协作机制设计.md) 确认不变量（尤其"评审红线"）。
-2. **确认分支与工作区**：`git status -sb` 确认工作区干净、在 **`claude/bulei-platform-prototype-dw7wxw`** 上、与远程同步。**首要动作是 `git fetch origin claude/bulei-platform-prototype-dw7wxw`**。
-3. **验证原型能打开**：浏览器直接打开 `prototype/index.html` 应无 JS 报错、五个页面可切换。若配置了 Playwright，跑一遍冒烟脚本（见 §「测试规范」）。
-4. **认准优先级**：**先保证原型交互自洽与设计不变量不被破坏，再谈新增页面 / 功能**。真实后端 / 生产技术栈为独立阶段，未启动前不在原型里预埋半成品接口。
-5. **精确复现、不臆测**：原型里所有"看似有后端"的行为都是内存态 mock（见 `docs/产品原型说明.md` §「mock 边界」）。改动前先读清现有 mock 语义，不确定的规则标注"待确认"而非猜测。
+### 1.1 评审红线（品牌基因）
+关键决策必须人工显式打回 / 批准，**永不自动化**：
+- 需求评审 · 技术方案评审 · 最终验收
+- 高风险命令（`git push` / `docker push` / `rm -rf` / `sudo`）
+- 任何跨出项目工作目录的文件操作
 
-**开发纪律**（每完成一个可验证切片就走一遍）：
-自查（浏览器打开无报错 / Playwright 冒烟绿）→ 更新相关文档（原型说明 / 机制设计）→ 小步提交（Conventional Commits）→ 推送。保证任何人下一秒接手都能立即继续。
+### 1.2 Local First
+- 默认本地 SQLite / 本地文件 / 本地 Git
+- 默认调本机 CLI（Claude Code / Codex / Gemini CLI）
+- 云 API 与本地模型都是**用户可选**，不是默认
 
----
+### 1.3 Zero Server
+- 核心功能不依赖不令官方云
+- 用户下载安装 → 配置 AI → 开始工作
 
-## 设计先行工作流
+### 1.4 Provider Agnostic
+- Agent 与 Provider 解耦
+- 所有 CLI / API / Local 走统一 `Provider` 抽象
+- Fallback 链路：优先 CLI → Local → API
 
-任何超过"单一自包含小改动"规模的工作，一律走**"设计先于编码"**节奏：
+### 1.5 Artifact Driven
+- Agent 之间**主要靠标准化 Artifact 传递信息**，不主要靠聊天上下文
+- 每个 Artifact 必须能反向追溯到用户最初的目标
 
-1. **业务 / 交互背景** → [`docs/产品原型说明.md`](docs/产品原型说明.md)：确认要动的页面 / 数据模型现状。
-2. **不变量核对** → [`docs/协作机制设计.md`](docs/协作机制设计.md)：你的改动必须符合的机制矩阵与红线。
-3. **改动方案** → 对新增页面 / 重构交互，先在提交信息或一段 spec 里写清"改什么、为什么、影响哪些既有交互"，再动手。
-4. **实施 → 回填文档**：完成后同步更新原型说明 / 机制设计，让下个 agent 继承你的取舍。
-
-> **不要跳过设计这一步** —— 尤其触及"自主认领 / 临时协同 / 协作痕迹 / 评审红线"四类机制的改动，先想清楚再写，避免破坏来自三轮讨论沉淀的不变量。
-
----
-
-## 文档地图
-
-按需读取：
-
-| 层级 | 文档 | 何时读 |
-|---|---|---|
-| 项目规则 | `CLAUDE.md` + `AGENTS.md`（本文） | 每次接手前 |
-| 上手主入口 | `docs/项目开发须知.md` | 首次接手 / 忘了流程时 |
-| 原型规格 | `docs/产品原型说明.md` | 改动任何页面 / 数据模型前 |
-| 机制不变量 | `docs/协作机制设计.md` | 改动协作交互前（**改前必读**） |
-| 交付物 | `prototype/index.html` | 始终——它是唯一的真源 |
-
-> **文档语言**：所有项目文档默认使用中文，除非用户明确要求其他语言。稳定标识（页面 / 机制的功能名，如"自主认领机制"）跨文档保持一致。
-
----
-
-## 项目结构与模块组织
-
-当前仓库是一个**单文件前端原型**为核心的仓库，结构刻意保持极简：
-
+### 1.6 最小权限 · 显式授权
+Agent 操作电脑必须精细到六大类：
 ```
-.
-├── README.md            # 产品与仓库导航
-├── AGENTS.md            # 仓库开发规则（本文，权威源）
-├── CLAUDE.md            # 分支政策 · design-first · 文档地图（精简指针）
-├── prototype/
-│   └── index.html       # 高保真可交互原型（HTML + CSS + 原生 JS，单文件）
-└── docs/
-    ├── 项目开发须知.md
-    ├── 产品原型说明.md
-    └── 协作机制设计.md
+File · Command · Network · Git · Docker · MCP
+```
+高风险操作必须弹窗确认，且可选"允许一次 / 始终允许"。
+
+### 1.7 不臆造
+技术栈 / 后端 / 业务规则**未定的**，标"待确认"交用户裁决，**不猜**。
+
+### 1.8 改动最小化
+紧扣需求，禁止"顺手改一下"。
+
+---
+
+## 2. 分支政策
+
+- **主开发分支：`claude/bulei-platform-prototype-dw7wxw`**（分支名沿用旧仓库，不改）。
+- 直接在此分支开发、提交、推送。
+- 未经用户明确许可，**不推送到其他分支**，**不创建 PR**。
+- 每次接手第一动作：`git fetch origin claude/bulei-platform-prototype-dw7wxw && git status -sb`。
+
+Sub-agent 用 worktree 隔离时可临时分支，交付后 `--ff-only` 合回并推，不留孤立分支。
+
+---
+
+## 3. 命名约定
+
+### 3.1 产品名
+- 正式：`不令 OPC`
+- 简称：`OPC`
+- 英文：`BuLing OPC` / `OPC by BuLing`
+
+### 3.2 内部模块 / 一级菜单
+统一 `XX 中心` 格式：
+- 项目中心 / 团队中心 / 任务中心 / 工作流中心 / 产出中心 / 评审中心
+- 技能中心 / 记忆中心 / 模型中心 / 权限中心 / 日志中心
+
+### 3.3 AI 岗位
+中文短名，**不加 "Agent" 后缀**：
+- 产品经理 · 技术负责人 · 架构师 · 项目经理 · 设计师 · 前端 · 后端 · 测试 · 验收
+
+### 3.4 系统文案主语
+用岗位名，不用 "Agent"：
+- ✅ "**产品经理** 正在整理需求…"
+- ❌ "PM Agent is analyzing requirements…"
+
+### 3.5 代码命名
+- TypeScript：camelCase / PascalCase / UPPER_SNAKE 常量
+- Rust：snake_case / PascalCase
+- 文件：kebab-case（`agent-runner.ts` / `provider_router.rs`）
+- 数据库表：snake_case（`agent_runs` / `task_reviews`）
+
+---
+
+## 4. Design-First 六步纪律
+
+超过"单一自包含小改动"规模的工作，必须走完六步再动键盘：
+
+1. **明确目标**：这个改动要解决什么用户/系统问题？
+2. **读现状**：`docs/OPC-产品定义.md` + 相关模块代码 → 确认当前形状
+3. **核对不变量**：本文 §1 硬约束是否被本次改动挑战
+4. **写方案**：改什么 / 为什么 / 影响哪些既有能力 / 迁移风险
+5. **拍板**：不确定的技术栈 / 数据字段 / 交互，走 AskUserQuestion 或标"待确认"，不猜
+6. **落地**：小步提交 · Conventional Commits · 每步能独立通过 typecheck
+
+---
+
+## 5. 数据模型改动纪律
+
+数据是 OPC 的地基，改起来最贵：
+
+- SQLite schema 每次改动都要写 migration，不允许"手工改 schema"
+- Artifact / Review / ExecutionLog 三张表**只允许 append**，不允许 update / delete（审计要求）
+- API Key **永远走 OS Keychain**（macOS Keychain / Windows Credential Manager / Linux Secret Service），不允许落 SQLite
+- 加密算法沿用旧 `legacy/apps/api/src/modules/providers/key-crypto.ts` 的 AES-256-GCM，作为文件加密兜底
+
+---
+
+## 6. 权限与安全纪律
+
+任何新增 Agent 可调用的 Tool，必须：
+
+1. 声明所属的权限类（File / Command / Network / Git / Docker / MCP）
+2. 声明**最小权限集合**（不是"启用整个 shell"，而是"只允许 `npm test`"）
+3. 高风险操作必须走弹窗确认组件，不允许静默执行
+4. 所有执行必须写 `ExecutionLog`（Who / What / When / Where / Provider / Command / Input / Output / Result）
+5. 与外发有关的操作必须过隐私哨兵（Privacy Sentinel），敏感数据自动脱敏或直接拒绝
+
+---
+
+## 7. Commit / PR 规范
+
+**Conventional Commits**：
+```
+feat(runtime): 新增 Provider Router
+fix(gateway): 修复 CORS null origin 被拒绝
+docs(opc): 更新产品定义文档
+refactor(agents): Agent Skill 层与 Tool 层拆分
+chore: 归档旧 apps/api 到 legacy/
 ```
 
-**`prototype/index.html` 内部结构**（同一文件内分段，改动时按段定位）：
+**尾行**：所有 commit 尾行加 `Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>` + `Claude-Session: ...`（见 Bash 工具规范）。
 
-- **设计令牌（`:root` / `@media prefers-color-scheme` / `[data-theme]`）**：颜色 / 圆角 / 阴影 / 缓动，深浅双主题三态齐全。
-- **组件样式**：按功能块注释分隔（app-shell / 卡片 / 任务看板 / 任务详情 / 向导 / 机制矩阵 …）。
-- **ICONS**：内联 SVG 图标表 + 占位符替换。
-- **DATA MODEL（mock）**：`AGENTS` / `TASKS` / `DOCS` / `MODULE_CATALOG` / `LOCAL_CANDIDATES` / `MARKET_CATALOG` / `PROVIDERS`（AI API 提供方）等内存态数据。
-- **视图渲染**：`renderOverview` / `renderAgents` / `renderTasks` / `renderPublishTask` / `renderProviders` / `renderDocs` + `renderTaskDetail`。
-- **交互装配**：`wireViewEvents` 及各弹层 / 向导的事件委托。
-
-> 生产实现的目录约定（`src/` 布局、框架、后端）为**待确认**，等技术栈选定后在本节补充，不预先臆造。
+**PR**：未经用户明确许可**不创建 PR**。用户明确要求时才建，并检查仓库有无 `.github/PULL_REQUEST_TEMPLATE.md`。
 
 ---
 
-## 构建、测试与本地开发命令
+## 8. 测试规范
 
-原型免构建，无包管理器依赖。常用操作：
-
-- **打开原型**：浏览器直接打开 `prototype/index.html`，或 `cd prototype && python3 -m http.server 8080` 后访问 `http://localhost:8080`。
-- **JS 语法自查**（改动 `<script>` 后）：把脚本块抽出后 `node --check`，确认无语法错误。
-- **交互冒烟（若环境可用 Playwright）**：用无头 Chromium 加载页面，断言五个页面可切换、无 `pageerror` / `console.error`，并覆盖关键流程（创建 Agent 向导、任务认领、卡点组队、评审批准、机制弹窗）。这是当前唯一的"回归测试"手段。
-- **生产构建 / 单元测试 / CI**：**待确认**——技术栈未定，尚无 `package.json` / 构建脚本。启动生产实现阶段时在此补充。
+- **Runtime 层**（Rust）：`cargo test` 每 crate 有覆盖
+- **Provider Adapter**：每家 CLI / API 至少一个"发现 + 空跑一次" 的集成测试
+- **前端**（React）：关键交互组件（Team 组阁向导 / 权限确认弹窗 / 评审面板）走 Playwright 无头浏览器冒烟
+- **本地网关**：POST /discover 通过 401 → 200 → 结构断言三段式
 
 ---
 
-## 编码风格与命名约定
+## 9. 文档纪律
 
-面向当前原型（`prototype/index.html`）：
-
-- **缩进 / 编码**：2 空格、LF、UTF-8。
-- **命名**：JS 函数用 `camelCase`；渲染函数统一 `render<View>` 前缀；事件数据属性用 `data-<kebab>`；CSS 类用 `kebab-case`，设计令牌用 `--kebab`。
-- **主题合规**：任何颜色都走设计令牌，**不得**把颜色只定义在 `@media` 或 `[data-theme]` 块里；`body` 必须显式设背景令牌。改配色先看 §「设计令牌」是否已有可复用变量。
-- **改动最小化**：改动必须紧扣需求，**禁止"顺手改一下"**。非显而易见的逻辑加简洁中文注释，说明"为什么这么做"，而不仅是"做了什么"。
-- **术语一致**：界面文案与代码注释里**不出现蚁群 / 蜂群 / 狼群**等生物学比喻，统一用功能名（自主认领机制 / 临时协同机制 / 协作痕迹机制）。
-- **无障碍**：非原生可点元素要能 Tab 聚焦、Enter/Space 激活（复用 `makeKeyboardClickable`）；保留可见的键盘焦点态。
-
-> 生产代码的语言 / 框架规范（TS 风格、组件规范、Lint 工具）随技术栈选定后补充，当前**待确认**。
+**文档即代码**：
+- 改了产品定义 → 同步 `docs/OPC-产品定义.md`
+- 改了本地网关协议 → 同步 `docs/本地网关.md`
+- 改了硬约束 → 同步 [`CLAUDE.md`](CLAUDE.md) 与本文
+- **没更新相关文档，切片就没做完**
 
 ---
 
-## 测试规范
+## 10. 从旧仓库继承的资产
 
-- **原型阶段的"测试"= 交互冒烟**：以 Playwright 无头浏览器加载 `prototype/index.html`，断言：(1) 无 JS 运行时错误；(2) 五个页面可切换；(3) 关键流程可跑通（Agent 创建向导五步、任务认领、换人接棒 / 卡点组队 / 解散、文档评审批准联动、机制说明弹窗与流程图）。
-- **每次改动后必跑冒烟**，把"我这次改动如果让某个页面报错，冒烟会不会发现"作为自检问题。
-- **单元 / 集成 / 覆盖率阈值**：技术栈未定前**待确认**；进入生产实现阶段时定义框架与阈值并写入本节。
+**能沿用（已保留）**：
+- `packages/cli-registry/` — CLI 签名注册表（10 家）
+- `apps/local-gateway/` — 本机守护进程 · 127.0.0.1 + Token
+- `docs/本地网关.md` — 协议 / 安全底线
 
----
+**归档到 `legacy/`（不构建 · 参考不引用）**：
+- `legacy/apps/api/` — NestJS + Prisma（AES 加密 · 评审红线状态机可借鉴）
+- `legacy/apps/web/` — Next.js 14
+- `legacy/infra/` — docker-compose (Postgres + Redis)
+- `legacy/prototype/` — 原型 HTML（视觉设计语言可借鉴）
+- `legacy/docs/*` — 旧「不令 · 企业级协作平台」全套文档
 
-## 接手与交接文档规则
-
-- **文档即代码**：改了原型交互 / 数据模型，就要同步 `docs/产品原型说明.md`；改了协作机制的行为，就要同步 `docs/协作机制设计.md`。**没更新相关文档，切片就没做完**。
-- **不臆造业务规则**：任何必需行为若原型说明 / 机制设计里没写，**停下问用户**，或在提交信息里标"待确认"。定价 / 权限 / 合规类规则猜错是安全问题，不是风格问题。
-- **完成里程碑后**及时更新 README 的"原型覆盖的页面"与相关 docs，让下个 agent 无需翻聊天记录即可继续。
-
----
-
-## 提交与 Pull Request 规范
-
-- **分支政策**：主开发分支为 **`claude/bulei-platform-prototype-dw7wxw`**，直接在此分支开发、提交、推送；未经用户明确许可**不推送到其他分支**。（sub-agent 用 worktree 隔离时可临时分支，交付后 `--ff-only` 合回并推，不留孤立分支。）
-- **提交信息遵循 Conventional Commits**：`feat: ...`、`fix: ...`、`docs: ...`、`refactor: ...`、`chore: ...`；原型 UI 改动用 `feat(prototype): ...` / `fix(prototype): ...`。
-- **小步提交**：每个可验证切片一个提交，信息说明"改了什么、为什么"。
-- **PR（如需要）**：包含变更摘要、关联任务、UI 截图（原型改动必附）、已运行的自查命令（浏览器打开 / Playwright 冒烟结果）。**仅在用户明确要求时创建 PR。**
+**明令禁止**：
+- 不要 `import` `legacy/` 里的任何东西
+- 不要 `pnpm add` `legacy/` 下的包
+- 迁移代码时**手抄一份到新位置** + 改造，不做符号链接 / workspace 引用
 
 ---
 
-## 安全与配置提示
+## 11. 第一天上手清单
 
-- 原型是纯静态页面，**不含任何真实凭据 / token / 后端地址**，也不应引入。发布为 Artifact 或托管时确认页面自包含、无外部数据请求。
-- 原型里"上传技能包 / 按链接安装 / 扫描本机"等均为**演示态 mock**，不真的抓取或执行外部代码——改动这些入口时保持该边界，不要在原型里接真实执行能力。
-- 进入生产实现阶段后：本地配置从 `.env.example` 复制到 `.env`（待建），禁止提交真实凭据。
+新接手 Agent 请按此清单一次走完：
+
+- [ ] 读 [`CLAUDE.md`](CLAUDE.md)（3 分钟）
+- [ ] 读本文 §0-3 §10（5 分钟）
+- [ ] 读 [`docs/OPC-产品定义.md`](docs/OPC-产品定义.md) §1 §2 §3 §5 §17（10 分钟）
+- [ ] `git fetch origin claude/bulei-platform-prototype-dw7wxw && git status -sb`
+- [ ] `pnpm install` · `pnpm -r typecheck` → 全绿
+- [ ] `make gateway` → 本地网关起来 · 用 curl 试 `/health` 和 `/discover` → 200
+- [ ] 开工
+
+---
+
+## 12. 常见陷阱
+
+- **误引 legacy/**：新代码不要 `import` `legacy/` 下的东西，会污染 workspace
+- **在 SQLite 存 API Key**：一律走 OS Keychain
+- **静默调用高风险命令**：任何 Tool 调用前先过权限系统
+- **忘同步文档**：改了产品行为不改 `OPC-产品定义.md` 就是没做完
+- **发号施令的文案**：主语用岗位（"产品经理"），不要写 "Agent" / "系统"

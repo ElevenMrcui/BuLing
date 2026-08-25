@@ -1,3 +1,5 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # legacy/ 是旧「不令 · 企业级协作平台」骨架，仅作参考，不进工作区
+  - "!legacy/**"

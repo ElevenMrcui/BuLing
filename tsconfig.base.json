@@ -16,9 +16,6 @@
     "emitDecoratorMetadata": true,
     "declaration": true,
     "sourceMap": true,
-    "baseUrl": ".",
-    "paths": {
-      "@buling/shared": ["packages/shared/src/index.ts"]
-    }
+    "baseUrl": "."
   }
 }

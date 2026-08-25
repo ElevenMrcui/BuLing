@@ -1,8 +1,8 @@
 {
-  "name": "buling",
+  "name": "buling-opc",
   "private": true,
-  "version": "0.1.0",
-  "description": "不令 · 去中心化多智能体协作平台（企业级骨架）",
+  "version": "0.2.0",
+  "description": "不令 OPC · One Person Company · Local-First 的私人 AI 公司桌面应用",
   "packageManager": "pnpm@9.12.0",
   "engines": {
     "node": ">=22.0.0",
@@ -14,7 +14,6 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "migrate": "pnpm --filter @buling/api prisma:migrate",
-    "generate": "pnpm --filter @buling/api prisma:generate"
+    "gateway": "pnpm --filter @buling/local-gateway start"
   }
 }
