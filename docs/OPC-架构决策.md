@@ -154,6 +154,22 @@ Rust 端用 `keyring` crate 统一封装。
 
 **下一步（P0.5+）**：Codex / Gemini CLI / Aider 的 adapter（先跑一次真实 `--help` 核实参数）；Tauri IPC 已加 `opc_providers` 命令跑通"扫描全部 Provider 状态"的最小闭环；模型中心 UI 的"添加 Provider / 测试连接 / 保存 Key"表单待建。
 
+### ADR-005 附注 2 · `runtime/crates/opc-agent` 落地（P0.5）—— Agent 接到 Provider 上
+
+在 `opc-provider` 之上加了一层薄的 Agent 层，把"岗位定义"和"真的跑一次"接起来，闭环从 YAML 文件走到一次真实 Provider 调用：
+
+- **加载**：`load_agents_from_dir()` 把 `agents/*.yaml` 解析成 `AgentDefinition`（字段与 `agents` 表逐一对应）
+- **播种**：`seed_agents()` upsert 进 `app.sqlite.agents`。两条设计取舍：
+  1. `ON CONFLICT(id) DO UPDATE ... WHERE agents.kind = 'preset'` —— 用户 fork 过某个预置 id 的场景（理论不该发生，但 SQL 层面必须防）不会被重新播种覆盖
+  2. `version` 只在 `system_prompt` 真的变化时才 `+1`（`CASE WHEN ... THEN +1 ELSE` 表达式），不是每次冷启动播种都无脑递增——`version` 字段要留给未来 UI 做"这个岗位改过几次"的有意义信号
+- **驱动**：`select_provider()` 按 `agent.provider_priority` 顺序尝试，跳过不可用的（CLI 未装 / adapter 未实现 / API 无凭证），返回第一个 `status().available` 的实例；`run_task()` 在此基础上组 `ProviderRequest`（`system` = Agent 人格）并 `execute()`
+
+**Tauri 集成**：`get_app_db()` 每次冷启动都会重新播种（幂等，见上），新增 IPC `opc_agents` 列出全部岗位。顺手修了 `opc_providers` 的一个真实 bug——原实现在 for 循环里对 `registry.build()` 用 `?`，导致任何一个 manifest 构建失败（比如 codex-cli/gemini-cli/aider 这类 adapter 未实现的）会让**整个** Provider 列表请求失败；改为单个失败只把该 Provider 标 `available:false` 并附错误详情，不拖累其余条目。
+
+**测试**：6 个，覆盖加载（真实解析 9 份 YAML）、播种幂等性、version 只在 prompt 变化时递增、不覆盖用户行、`select_provider` 的 fallback 与全失败报错路径（后两个用临时 manifest 目录 + wiremock，不依赖沙箱机器装了什么 CLI，避免测试结果随机器环境漂移）。
+
+**未做的事**（刻意留给 `opc-workflow`）：工具调用循环、Artifact 落盘、强制产出 Report.md、认领意愿分——`run_task` 现在只是"喂一句话，吐一段文本回来"。
+
 ---
 
 ## ADR-006 · 依赖沿用：`apps/local-gateway` 与 `packages/cli-registry` 短期保留

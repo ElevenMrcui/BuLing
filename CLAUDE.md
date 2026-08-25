@@ -61,7 +61,7 @@
 | Runtime 规划 | [`runtime/README.md`](runtime/README.md) |
 | Provider 规划 | [`providers/README.md`](providers/README.md) |
 | 桌面壳规划 | [`apps/desktop/README.md`](apps/desktop/README.md) |
-| 现存可跑代码 | `packages/cli-registry/` · `apps/local-gateway/` · `runtime/crates/opc-storage/` · `apps/desktop/`（Tauri 骨架）|
+| 现存可跑代码 | `packages/cli-registry/` · `apps/local-gateway/` · `runtime/crates/{opc-storage,opc-provider,opc-agent}/` · `apps/desktop/`（Tauri，IPC 已联通）|
 | 旧骨架参考 | `legacy/`（不构建 · 见 `legacy/README.md` 禁引规则） |
 
 ---

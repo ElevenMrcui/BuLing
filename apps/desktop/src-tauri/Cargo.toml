@@ -18,10 +18,12 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 thiserror = "2"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros"] }
 
 # 引用 runtime workspace 的 crate（相对路径）
 opc-storage = { path = "../../../runtime/crates/opc-storage" }
 opc-provider = { path = "../../../runtime/crates/opc-provider" }
+opc-agent = { path = "../../../runtime/crates/opc-agent" }
 
 # tauri 2 dev / release features
 [features]

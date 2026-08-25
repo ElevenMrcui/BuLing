@@ -76,8 +76,9 @@
 │   │   └── project/0001_init.sql    PROJECT 库：teams/tasks/artifacts/reviews/workflows/memory+FTS5
 │   └── crates/
 │       ├── opc-storage/             ✅ sqlx + SQLite · migrator · AppDb + ProjectDb（3 测试）
-│       └── opc-provider/            ✅ Provider trait · CLI/API/Local 抽象 · 11 家厂商（11 测试）
-│                                    见 providers/README.md
+│       ├── opc-provider/            ✅ Provider trait · CLI/API/Local 抽象 · 11 家厂商（11 测试）
+│       │                            见 providers/README.md
+│       └── opc-agent/               ✅ 加载 agents/*.yaml · 播种 app.sqlite · 驱动一次 Provider 执行（6 测试）
 │
 ├── providers/                       AI 能力源 manifest（CLI / API / Local · 11 家）
 │   ├── README.md                    manifest 格式 · Provider trait · 加厂商步骤
@@ -108,9 +109,9 @@
 ├── apps/
 │   ├── desktop/                     ✅ Tauri 2 桌面壳（骨架已落地 · 可 cargo build）
 │   │   ├── package.json             Vite + React + @tauri-apps/api
-│   │   ├── src/                     React 前端（存储层状态 + Provider 发现列表）
-│   │   └── src-tauri/               Rust 后端（薄壳 · 引用 opc-storage + opc-provider）
-│   │                                IPC: opc_status · opc_providers
+│   │   ├── src/                     React 前端（存储层状态 + 预置岗位 + Provider 发现列表）
+│   │   └── src-tauri/               Rust 后端（薄壳 · 引用 opc-storage + opc-provider + opc-agent）
+│   │                                IPC: opc_status · opc_providers · opc_agents
 │   └── local-gateway/               本机守护进程 · 127.0.0.1 + Token · 短期沿用
 │                                    P0 后期融入 runtime/crates/opc-provider
 │
@@ -138,8 +139,9 @@ pnpm install
 
 # —— Runtime（Rust · SQLite 存储） ——
 make runtime-check        # cargo check
-make runtime-test         # 14 个测试：opc-storage 3 个（app/project db + FTS5）
+make runtime-test         # 20 个测试：opc-storage 3 个（app/project db + FTS5）
                           #           + opc-provider 11 个（CLI adapter 单测 + wire format 集成测试）
+                          #           + opc-agent 6 个（YAML 加载 + 播种幂等性 + Provider fallback）
 
 # —— 桌面 App（Tauri 2） ——
 make desktop-check        # 无窗口 · 前端 typecheck+build + Rust cargo check

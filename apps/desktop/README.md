@@ -2,11 +2,14 @@
 
 Tauri 2 桌面壳 · React + TypeScript 前端 · Rust 后端（复用 `runtime/`）。
 
-**当前状态：骨架已落地并跑通 E2E。** `cargo build`（`apps/desktop/src-tauri`）+ `pnpm --filter @buling/desktop build` 均通过；已联通两个 IPC 命令：
-- `opc_status` —— APP 库路径 / 迁移版本
-- `opc_providers` —— 扫描 `providers/*/manifest.toml`，返回每个 Provider 的可用性（只发现不执行）
+**当前状态：骨架已落地并跑通 E2E。** `cargo build`（`apps/desktop/src-tauri`）+ `pnpm --filter @buling/desktop build` 均通过；已联通三个 IPC 命令：
+- `opc_status` —— APP 库路径 / 迁移版本 / 已播种的预置岗位数
+- `opc_providers` —— 扫描 `providers/*/manifest.toml`，返回每个 Provider 的可用性（只发现不执行；单个 Provider 构建失败不拖垮整个列表）
+- `opc_agents` —— 列出 `app.sqlite.agents` 里的全部岗位；每次冷启动会先用 `agents/*.yaml` 重新播种（幂等，不覆盖用户 fork 过的行）
 
-前端首页展示这两块状态，作为"Runtime + Storage + Provider 三层打通"的最小可视证据。
+前端首页展示这三块状态，作为"Runtime + Storage + Provider + Agent 四层打通"的最小可视证据。
+
+**尚未做**：没有真实图形环境跑一次窗口级冒烟（这个沙箱没有显示服务器）——目前的验证止于 `cargo build` 编译通过 + 各 runtime crate 自身的单测/集成测试覆盖了 IPC 命令背后调用的逻辑。真机上打开窗口验证仍是待办。
 
 ## 规划的目录
 

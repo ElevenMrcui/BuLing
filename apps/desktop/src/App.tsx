@@ -5,6 +5,7 @@ interface OpcStatus {
   app_db_version: number;
   app_db_path: string;
   ready: boolean;
+  agents_seeded: number;
 }
 
 interface ProviderInfo {
@@ -17,11 +18,24 @@ interface ProviderInfo {
   detail: string | null;
 }
 
+interface AgentInfo {
+  id: string;
+  kind: "preset" | "user";
+  role: string;
+  display_name: string;
+  avatar: string | null;
+  sensitivity: "low" | "medium" | "high";
+  provider_priority: string[];
+  version: number;
+}
+
 export default function App() {
   const [status, setStatus] = useState<OpcStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[] | null>(null);
   const [providersError, setProvidersError] = useState<string | null>(null);
+  const [agents, setAgents] = useState<AgentInfo[] | null>(null);
+  const [agentsError, setAgentsError] = useState<string | null>(null);
 
   useEffect(() => {
     invoke<OpcStatus>("opc_status")
@@ -30,6 +44,9 @@ export default function App() {
     invoke<ProviderInfo[]>("opc_providers")
       .then(setProviders)
       .catch((e) => setProvidersError(String(e)));
+    invoke<AgentInfo[]>("opc_agents")
+      .then(setAgents)
+      .catch((e) => setAgentsError(String(e)));
   }, []);
 
   return (
@@ -57,11 +74,39 @@ export default function App() {
             <dd className="mono">{status.app_db_path}</dd>
             <dt>就绪</dt>
             <dd>{status.ready ? "✓" : "—"}</dd>
+            <dt>预置岗位</dt>
+            <dd>{status.agents_seeded} 位</dd>
           </dl>
         ) : statusError ? (
           <p className="err">加载失败：{statusError}</p>
         ) : (
           <p className="hint">正在初始化 APP 库…</p>
+        )}
+      </section>
+
+      <section className="status card" style={{ marginTop: 16 }}>
+        <h2>团队中心 · 预置 AI 岗位</h2>
+        {agents ? (
+          <ul className="provider-list">
+            {agents.map((a) => (
+              <li key={a.id} className="provider-row">
+                <span className="provider-name">
+                  {a.avatar ? `${a.avatar} ` : ""}
+                  {a.display_name}
+                </span>
+                <span className="provider-meta">
+                  {a.role} · sensitivity={a.sensitivity} · v{a.version}
+                </span>
+                <span className="provider-detail">
+                  provider_priority: {a.provider_priority.join(" → ") || "（未配置）"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : agentsError ? (
+          <p className="err">加载失败：{agentsError}</p>
+        ) : (
+          <p className="hint">正在加载预置岗位…</p>
         )}
       </section>
 
@@ -89,7 +134,7 @@ export default function App() {
       </section>
 
       <footer>
-        <span>P0 · Runtime + Storage + Provider 层已就绪 · 团队/任务/工作流待续</span>
+        <span>P0.5 · Runtime + Storage + Provider + Agent 层已就绪 · 项目/任务/工作流待续</span>
       </footer>
     </main>
   );

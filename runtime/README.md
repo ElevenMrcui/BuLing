@@ -26,19 +26,18 @@ runtime/
 │   ├── opc-storage/               ✅ SQLite + sqlx · migration runner · AppDb/ProjectDb（3 测试）
 │   ├── opc-provider/               ✅ Provider trait · CLI/API/Local 抽象 · 11 家厂商 manifest（11 测试）
 │   │                                见 §Provider 层 与 providers/README.md
-│   ├── opc-agent/                 Agent 定义加载 / 实例化 / 状态
+│   ├── opc-agent/                 ✅ 加载 agents/*.yaml · 播种 app.sqlite · 驱动一次 Provider 执行（6 测试）
+│   │                                见 §Agent 层
 │   ├── opc-project/                Project 创建 / 打开 / 归档 · .opc/ 目录布局
 │   ├── opc-task/                  Task 生命周期 · TaskRun 调度 · 认领意愿分
 │   ├── opc-workflow/               DAG 引擎 · 节点触发 · Gate 处理 · 循环 / 条件
 │   ├── opc-tool/                  Tool 层（fs / shell / git / http / db）+ 权限系统
 │   ├── opc-mcp/                   MCP client
 │   ├── opc-privacy/                隐私哨兵：外发拦截 / 数据脱敏
-│   ├── opc-audit/                 ExecutionLog append-only 写入
-│   └── opc-runtime/                总装：把上面所有 crate 编成一个 lib，供 Tauri 调
-│
-└── seeds/                        首次启动播种数据
-    └── agents.rs                 从 agents/*.yaml 读并写入 app.sqlite
+│   └── opc-audit/                 ExecutionLog append-only 写入
 ```
+
+（原规划里的 `opc-runtime` 总装 crate、`seeds/agents.rs` 独立脚本已被 `opc-agent` 的 `seed_agents()` 取代——不再需要单独一层，Tauri `src-tauri/src/lib.rs` 直接调用即可，见 §Agent 层。）
 
 ## Provider 层（`opc-provider`，已落地）
 
@@ -50,6 +49,19 @@ runtime/
 - **Factory**：`ProviderRegistry` 从 `providers/*/manifest.toml` 声明式构建实例，加厂商不改 Rust 代码
 
 职责边界：只做一次文本补全（system + 历史进，文本 + usage 出），不做工具调用循环——那是 `opc-tool` + `opc-workflow` 的事。
+
+## Agent 层（`opc-agent`，已落地）
+
+三件事：**加载** `agents/*.yaml` → **播种** `app.sqlite.agents`（幂等 upsert）→ **驱动**一次 Provider 执行（把 Agent 接到 `opc-provider` 上）。
+
+- `load_agents_from_dir()` —— 解析 9 份预置 YAML 为 `AgentDefinition`
+- `seed_agents()` —— upsert 进 `agents` 表；**只有 `system_prompt` 变化时才递增 `version`**（避免每次冷启动都无意义 +1）；`ON CONFLICT ... WHERE kind='preset'` 保证永远不覆盖用户 fork 过的同 id 行
+- `select_provider()` —— 按 `agent.provider_priority` 顺序尝试，返回第一个 `status().available` 的 Provider（CLI 没装就走 API，都不行报错并列出试过哪些 id + 原因）
+- `run_task()` —— `select_provider` + 组 `ProviderRequest`（`system` = Agent.system_prompt）+ `execute()`，返回 `AgentRunOutput { provider_id, response }`
+
+Tauri App 每次冷启动都会重新播种（`src-tauri/src/lib.rs` 的 `get_app_db()` 里），保证仓库里改了 Agent YAML 后用户下次开 App 就同步。
+
+职责边界：`run_task` 只是"一次文本补全"，不强制产出 Artifact / 不校验 Report.md——那些是 `opc-workflow` 的事。
 
 ## 双层 SQLite 布局
 
@@ -98,9 +110,9 @@ runtime/
 
 1. ✅ `opc-storage` —— 连库 / 跑 migration / AppDb + ProjectDb
 2. ✅ `opc-provider` —— Provider trait + CliProvider(Claude Code) + ApiProvider(11 家厂商) + ProviderRegistry；Tauri IPC `opc_providers` 已联通
-3. `opc-agent` —— 加载 `agents/*.yaml` seed 到 app.sqlite
+3. ✅ `opc-agent` —— 加载 `agents/*.yaml` seed 到 app.sqlite + select_provider/run_task 闭环；Tauri IPC `opc_agents` 已联通，冷启动自动重新播种
 4. `opc-project` —— 创建 project 目录 + project.sqlite
 5. `opc-workflow` —— 加载 `templates/*.yaml` + DAG 实例化
-6. `opc-task` + `opc-runtime` —— 让一个节点跑起来（Agent + Provider + Tool）
-7. `opc-tool` —— 至少接通 fs.write / shell.run
+6. `opc-task` —— Task 生命周期，把 `opc-agent::run_task` 接进节点执行
+7. `opc-tool` —— 至少接通 fs.write / shell.run，`run_task` 的产出真正落盘成 Artifact
 8. `opc-privacy` + `opc-audit` —— 每次外发和 tool 调用都写日志
