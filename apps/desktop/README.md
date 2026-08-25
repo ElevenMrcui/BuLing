@@ -2,7 +2,7 @@
 
 Tauri 2 桌面壳 · React + TypeScript 前端 · Rust 后端（复用 `runtime/`）。
 
-**当前状态：骨架已落地并跑通 E2E。** `cargo build`（`apps/desktop/src-tauri`）+ `pnpm --filter @buling/desktop build` 均通过；已联通十一个 IPC 命令：
+**当前状态：骨架已落地并跑通 E2E。** `cargo build`（`apps/desktop/src-tauri`）+ `pnpm --filter @buling/desktop build` 均通过；已联通十六个 IPC 命令：
 - `opc_status` —— APP 库路径 / 迁移版本 / 已播种的预置岗位数
 - `opc_providers` —— 扫描 `providers/*/manifest.toml`，返回每个 Provider 的可用性（只发现不执行；单个 Provider 构建失败不拖垮整个列表）
 - `opc_agents` —— 列出 `app.sqlite.agents` 里的全部岗位；每次冷启动会先用 `agents/*.yaml` 重新播种（幂等，不覆盖用户 fork 过的行）
@@ -11,8 +11,12 @@ Tauri 2 桌面壳 · React + TypeScript 前端 · Rust 后端（复用 `runtime/
 - `opc_workflow_tasks` / `opc_workflow_ready_tasks` —— 列出一个工作流的全部/当前可执行任务节点
 - `opc_workflow_run_task` —— 真的跑一次可执行的 Agent 节点（选 Provider → 执行 → 落盘登记 Artifact）
 - `opc_workflow_gates` / `opc_workflow_approve_gate` / `opc_workflow_reject_gate` —— 评审红线：Gate 列表 + 人工通过/打回（永远由用户在界面上点，Runtime 不会自己调）
+- `opc_task_claimable_tasks` / `opc_task_manual_tasks` —— 列出当前可认领（`auto-claim`）/ 待手动指派（`manual`）的节点
+- `opc_task_claim` —— 真的执行一次认领（能力匹配打分，选最高分中标）
+- `opc_task_assign_manually` —— 把一个 `manual` 节点指派给指定岗位
+- `opc_task_run` —— 跑一次已经指派/认领好的节点（复用 `opc_workflow_run_task` 背后同一条执行链）
 
-前端首页展示项目中心 + 工作流中心 + 三块状态，作为"Runtime + Storage + Provider + Agent + Project + Workflow 六层打通"的最小可视证据。
+前端首页展示项目中心 + 工作流中心 + 三块状态，作为"Runtime + Storage + Provider + Agent + Project + Workflow + Task 七层打通"的最小可视证据。
 
 **尚未做**：没有真实图形环境跑一次窗口级冒烟（这个沙箱没有显示服务器）——目前的验证止于 `cargo build` 编译通过 + 各 runtime crate 自身的单测/集成测试覆盖了 IPC 命令背后调用的逻辑。真机上打开窗口验证仍是待办。
 

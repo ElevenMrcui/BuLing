@@ -53,6 +53,12 @@ interface GateInfo {
   status: string;
 }
 
+interface ClaimScore {
+  agent_instance_id: string;
+  template_agent_id: string;
+  score: number;
+}
+
 export default function App() {
   const [status, setStatus] = useState<OpcStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -75,9 +81,12 @@ export default function App() {
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskInfo[] | null>(null);
   const [readyNodeKeys, setReadyNodeKeys] = useState<Set<string>>(new Set());
+  const [claimableNodeKeys, setClaimableNodeKeys] = useState<Set<string>>(new Set());
+  const [manualNodeKeys, setManualNodeKeys] = useState<Set<string>>(new Set());
   const [gates, setGates] = useState<GateInfo[] | null>(null);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [busyNodeKey, setBusyNodeKey] = useState<string | null>(null);
+  const [manualPick, setManualPick] = useState<Record<string, string>>({});
 
   const refreshProjects = () => {
     invoke<ProjectInfo[]>("opc_list_projects")
@@ -91,6 +100,12 @@ export default function App() {
       .catch((e) => setWorkflowError(String(e)));
     invoke<TaskInfo[]>("opc_workflow_ready_tasks", { projectId, workflowId })
       .then((ready) => setReadyNodeKeys(new Set(ready.map((t) => t.node_key))))
+      .catch((e) => setWorkflowError(String(e)));
+    invoke<TaskInfo[]>("opc_task_claimable_tasks", { projectId, workflowId })
+      .then((claimable) => setClaimableNodeKeys(new Set(claimable.map((t) => t.node_key))))
+      .catch((e) => setWorkflowError(String(e)));
+    invoke<TaskInfo[]>("opc_task_manual_tasks", { projectId, workflowId })
+      .then((manual) => setManualNodeKeys(new Set(manual.map((t) => t.node_key))))
       .catch((e) => setWorkflowError(String(e)));
     invoke<GateInfo[]>("opc_workflow_gates", { projectId, workflowId })
       .then(setGates)
@@ -110,6 +125,54 @@ export default function App() {
     setWorkflowError(null);
     try {
       await invoke("opc_workflow_run_task", { projectId: activeProjectId, workflowId: activeWorkflowId, nodeKey });
+      refreshWorkflow(activeProjectId, activeWorkflowId);
+    } catch (err) {
+      setWorkflowError(String(err));
+    } finally {
+      setBusyNodeKey(null);
+    }
+  };
+
+  const claimNode = async (nodeKey: string) => {
+    if (!activeProjectId || !activeWorkflowId) return;
+    setBusyNodeKey(nodeKey);
+    setWorkflowError(null);
+    try {
+      const winner = await invoke<ClaimScore>("opc_task_claim", { projectId: activeProjectId, workflowId: activeWorkflowId, nodeKey });
+      setWorkflowError(`「${nodeKey}」认领给了 ${winner.template_agent_id}（能力匹配分 ${winner.score}）`);
+      refreshWorkflow(activeProjectId, activeWorkflowId);
+    } catch (err) {
+      setWorkflowError(String(err));
+    } finally {
+      setBusyNodeKey(null);
+    }
+  };
+
+  const assignManually = async (nodeKey: string) => {
+    if (!activeProjectId || !activeWorkflowId) return;
+    const templateAgentId = manualPick[nodeKey];
+    if (!templateAgentId) {
+      setWorkflowError("先选一个岗位再指派");
+      return;
+    }
+    setBusyNodeKey(nodeKey);
+    setWorkflowError(null);
+    try {
+      await invoke("opc_task_assign_manually", { projectId: activeProjectId, workflowId: activeWorkflowId, nodeKey, templateAgentId });
+      refreshWorkflow(activeProjectId, activeWorkflowId);
+    } catch (err) {
+      setWorkflowError(String(err));
+    } finally {
+      setBusyNodeKey(null);
+    }
+  };
+
+  const runAssignedTask = async (nodeKey: string) => {
+    if (!activeProjectId || !activeWorkflowId) return;
+    setBusyNodeKey(nodeKey);
+    setWorkflowError(null);
+    try {
+      await invoke("opc_task_run", { projectId: activeProjectId, workflowId: activeWorkflowId, nodeKey });
       refreshWorkflow(activeProjectId, activeWorkflowId);
     } catch (err) {
       setWorkflowError(String(err));
@@ -289,6 +352,34 @@ export default function App() {
                       {busyNodeKey === t.node_key ? "执行中…" : "跑这个节点"}
                     </button>
                   ) : null}
+                  {claimableNodeKeys.has(t.node_key) ? (
+                    <button type="button" disabled={busyNodeKey === t.node_key} onClick={() => claimNode(t.node_key)}>
+                      {busyNodeKey === t.node_key ? "认领中…" : "认领（能力匹配）"}
+                    </button>
+                  ) : null}
+                  {manualNodeKeys.has(t.node_key) ? (
+                    <span className="gate-actions">
+                      <select
+                        value={manualPick[t.node_key] ?? ""}
+                        onChange={(e) => setManualPick((m) => ({ ...m, [t.node_key]: e.target.value }))}
+                      >
+                        <option value="">选岗位…</option>
+                        {(agents ?? []).map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.display_name}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="button" disabled={busyNodeKey === t.node_key} onClick={() => assignManually(t.node_key)}>
+                        {busyNodeKey === t.node_key ? "指派中…" : "指派"}
+                      </button>
+                    </span>
+                  ) : null}
+                  {t.status === "assigned" && t.assignment_mode !== "template" ? (
+                    <button type="button" disabled={busyNodeKey === t.node_key} onClick={() => runAssignedTask(t.node_key)}>
+                      {busyNodeKey === t.node_key ? "执行中…" : "跑这个节点"}
+                    </button>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -368,7 +459,7 @@ export default function App() {
       </section>
 
       <footer>
-        <span>P0.5 · Runtime + Storage + Provider + Agent + Project + Workflow 层已就绪 · Task 认领/自动派单待续</span>
+        <span>P0.5 · Runtime + Storage + Provider + Agent + Project + Workflow + Task 层已就绪 · 表达式求值/多文件产出待续</span>
       </footer>
     </main>
   );

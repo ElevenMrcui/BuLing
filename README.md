@@ -81,7 +81,8 @@
 │       ├── opc-agent/               ✅ 加载 agents/*.yaml · 播种 app.sqlite · 驱动一次 Provider 执行（6 测试）
 │       ├── opc-tool/                ✅ 项目内文件写入（沙箱化）+ Artifact 登记（8 测试）
 │       ├── opc-project/             ✅ 创建/打开/列出项目 · 把预置 Agent 实例化进团队（8 测试）
-│       └── opc-workflow/            ✅ 加载模板 · 实例化 DAG · 驱动 Agent 节点 · 人工 Gate（7 测试）
+│       ├── opc-workflow/            ✅ 加载模板 · 实例化 DAG · 驱动 Agent 节点 · 人工 Gate（7 测试）
+│       └── opc-task/                ✅ manual/auto-claim 节点指派 · 能力匹配认领分（10 测试）
 │
 ├── providers/                       AI 能力源 manifest（CLI / API / Local · 11 家）
 │   ├── README.md                    manifest 格式 · Provider trait · 加厂商步骤
@@ -113,10 +114,12 @@
 │   ├── desktop/                     ✅ Tauri 2 桌面壳（骨架已落地 · 可 cargo build）
 │   │   ├── package.json             Vite + React + @tauri-apps/api
 │   │   ├── src/                     React 前端（项目中心 + 存储层状态 + 预置岗位 + Provider 发现列表）
-│   │   └── src-tauri/               Rust 后端（薄壳 · 引用 opc-storage + opc-provider + opc-agent + opc-project + opc-workflow）
+│   │   └── src-tauri/               Rust 后端（薄壳 · 引用 opc-storage + opc-provider + opc-agent + opc-project + opc-workflow + opc-task）
 │   │                                IPC: opc_status · opc_providers · opc_agents · opc_create_project · opc_list_projects
 │   │                                     · opc_workflow_tasks · opc_workflow_ready_tasks · opc_workflow_run_task
 │   │                                     · opc_workflow_gates · opc_workflow_approve_gate · opc_workflow_reject_gate
+│   │                                     · opc_task_claimable_tasks · opc_task_manual_tasks · opc_task_claim
+│   │                                     · opc_task_assign_manually · opc_task_run
 │   └── local-gateway/               本机守护进程 · 127.0.0.1 + Token · 短期沿用
 │                                    P0 后期融入 runtime/crates/opc-provider
 │
@@ -144,12 +147,13 @@ pnpm install
 
 # —— Runtime（Rust · SQLite 存储） ——
 make runtime-check        # cargo check
-make runtime-test         # 43 个测试：opc-storage 3 个（app/project db + FTS5）
+make runtime-test         # 53 个测试：opc-storage 3 个（app/project db + FTS5）
                           #           + opc-provider 11 个（CLI adapter 单测 + wire format 集成测试）
                           #           + opc-agent 6 个（YAML 加载 + 播种幂等性 + Provider fallback）
                           #           + opc-tool 8 个（沙箱路径校验 + Artifact 版本化 + 端到端胶水）
                           #           + opc-project 8 个（创建/打开/列出项目 + Agent 实例化 + 端到端胶水）
                           #           + opc-workflow 7 个（模板加载 + DAG 实例化 + 驱动执行 + Gate 通过/打回）
+                          #           + opc-task 10 个（能力匹配认领打分 + 手动指派 + 驱动已指派节点执行）
 
 # —— 桌面 App（Tauri 2） ——
 make desktop-check        # 无窗口 · 前端 typecheck+build + Rust cargo check
@@ -170,7 +174,7 @@ make gateway              # http://127.0.0.1:17817
 
 ## 使用教程
 
-> **当前进度提醒**：Runtime 已跑通 Storage / Provider / Agent / Tool / Project 五层，桌面壳能真的**创建项目、把 9 位预置岗位实例化进项目团队、发现本机可用的 AI 引擎**。但"选模板 → 自动派单 → Agent 接力产出 → 评审红线"这条工作流编排链（`opc-workflow` / `opc-task`）还没接上，所以下面教程止于"建团队"，还不能端到端跑出一个完整交付。
+> **当前进度提醒**：Runtime 已跑通 Storage / Provider / Agent / Tool / Project / Workflow / Task 七层，桌面壳能真的**创建项目、把 9 位预置岗位实例化进项目团队、发现本机可用的 AI 引擎、跑通"选模板 → Agent 接力产出 → 评审红线通过/打回 → 认领/指派下一阶段"这条链的前半段**。止步的地方是诚实的边界：前后端开发这几个节点需要"一次 Agent 产出一整个目录的多份源码文件"，这是比现有 Artifact 模型大得多的另一件事，还没做——下面教程会讲到具体停在哪。
 
 ### 1. 准备环境
 
@@ -228,12 +232,16 @@ health-app/
 
 这就是"评审红线永不自动化"这条硬约束在界面上的样子：AI 团队能一路把活干到评审节点前，但过 Gate 这一步永远要你自己点。
 
-**当前止步于此**：前后端开发这两个节点是"能力池认领"（`auto-claim`）、Bug 修复是"人工指派"（`manual`），这一版还没接执行路径，工作流会停在 `development_gate` 之前——这不是 bug，是诚实的进度边界，见 [`runtime/README.md` § P0 落地顺序](runtime/README.md#p0-落地顺序)。
+### 5. 前后端开发节点 · 认领 / 指派能跑通，执行会诚实卡住
 
-### 5. 命令行验证（不想开图形界面时）
+一路「通过」到「排期」/「设计」阶段完成后，「前后端开发」（`frontend_dev`/`backend_dev`）会出现「认领（能力匹配）」按钮——点一下，Runtime 真的会按能力标签重合度给团队每个成员打分，把任务指派给分最高的（这里几乎总是前端/后端本人）。指派型节点（如后面 QA 报告分类后的「Bug 修复」）同理会出现岗位下拉框 + 「指派」按钮，机制相同，只是这一版还走不到那一步（见下）。
+
+**认领/指派机制本身是真的**，但指派完之后点「跑这个节点」会报错——因为这几个节点的产出是"整个 `frontend/`/`backend/` 目录的源码"，不是一份 Markdown。现有的 Artifact 模型只知道怎么落一份**具名单文件**，"一次 AI 调用产出一整个目录的多份文件"是完全不同的另一件事，这一版没做。工作流会诚实地停在这里，不会静默产出一个叫 `frontend/**` 的假文件——见 [`runtime/README.md` § P0 落地顺序](runtime/README.md#p0-落地顺序)。
+
+### 6. 命令行验证（不想开图形界面时）
 
 ```bash
-make runtime-test   # 跑全部 43 个 Rust 集成/单元测试，验证 Storage/Provider/Agent/Tool/Project/Workflow 六层逻辑
+make runtime-test   # 跑全部 53 个 Rust 集成/单元测试，验证 Storage/Provider/Agent/Tool/Project/Workflow/Task 七层逻辑
 make desktop-check  # 无窗口验证前端 + Rust 后端都能编译
 ```
 

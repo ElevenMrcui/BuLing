@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use opc_agent::{load_agents_from_dir, seed_agents};
-use opc_project::{create_project, list_projects, open_project, CreateProjectInput};
+use opc_project::{create_project, find_agent_instance_id, list_projects, open_project, CreateProjectInput};
 use opc_provider::ProviderRegistry;
 use opc_storage::{AppDb, ProjectDb};
 use serde::Serialize;
@@ -487,6 +487,79 @@ async fn opc_workflow_reject_gate(
         .map_err(|e| format!("reject_gate: {e}"))
 }
 
+/// 列出当前可认领的 `auto-claim` 节点（依赖已满足）。
+#[tauri::command]
+async fn opc_task_claimable_tasks(app: tauri::AppHandle, state: State<'_, OpcState>, project_id: String, workflow_id: String) -> Result<Vec<TaskInfo>, String> {
+    let (project_db, _root) = get_project_db(&app, &state, &project_id).await?;
+    let rows = opc_task::list_claimable_tasks(&project_db, &workflow_id).await.map_err(|e| format!("list_claimable_tasks: {e}"))?;
+    Ok(rows.into_iter().map(TaskInfo::from).collect())
+}
+
+/// 列出当前等待用户手动指派的 `manual` 节点（依赖已满足）。
+#[tauri::command]
+async fn opc_task_manual_tasks(app: tauri::AppHandle, state: State<'_, OpcState>, project_id: String, workflow_id: String) -> Result<Vec<TaskInfo>, String> {
+    let (project_db, _root) = get_project_db(&app, &state, &project_id).await?;
+    let rows = opc_task::list_manual_tasks(&project_db, &workflow_id).await.map_err(|e| format!("list_manual_tasks: {e}"))?;
+    Ok(rows.into_iter().map(TaskInfo::from).collect())
+}
+
+/// 真的执行一次认领：按能力匹配分选出中标者，写 `assigned_agent_id`。
+#[tauri::command]
+async fn opc_task_claim(
+    app: tauri::AppHandle,
+    state: State<'_, OpcState>,
+    project_id: String,
+    workflow_id: String,
+    node_key: String,
+) -> Result<opc_task::ClaimScore, String> {
+    let (project_db, _root) = get_project_db(&app, &state, &project_id).await?;
+    let agents_root = agents_dir(&app)?;
+    let agent_defs = load_agents_from_dir(&agents_root).map_err(|e| format!("load_agents_from_dir: {e}"))?;
+    opc_task::claim_task(&project_db, &workflow_id, &node_key, &agent_defs).await.map_err(|e| format!("claim_task: {e}"))
+}
+
+/// 把一个 `manual` 节点指派给指定的团队成员——前端传预置岗位 id（如
+/// `"backend"`，跟 `opc_agents` 返回的 id 一致），这里查这个项目团队里对应
+/// 的 `agent_instances.id` 再指派，前端不用先知道内部实例 id。
+#[tauri::command]
+async fn opc_task_assign_manually(
+    app: tauri::AppHandle,
+    state: State<'_, OpcState>,
+    project_id: String,
+    workflow_id: String,
+    node_key: String,
+    template_agent_id: String,
+) -> Result<(), String> {
+    let (project_db, _root) = get_project_db(&app, &state, &project_id).await?;
+    let agent_instance_id = find_agent_instance_id(&project_db, &template_agent_id)
+        .await
+        .map_err(|e| format!("find_agent_instance_id: {e}"))?
+        .ok_or_else(|| format!("这个项目团队里没有「{template_agent_id}」这个岗位的实例"))?;
+    opc_task::assign_task_manually(&project_db, &workflow_id, &node_key, &agent_instance_id)
+        .await
+        .map_err(|e| format!("assign_task_manually: {e}"))
+}
+
+/// 跑一次已经指派/认领好的 `manual`/`auto-claim` 节点。
+#[tauri::command]
+async fn opc_task_run(
+    app: tauri::AppHandle,
+    state: State<'_, OpcState>,
+    project_id: String,
+    workflow_id: String,
+    node_key: String,
+) -> Result<TaskRunInfo, String> {
+    let (project_db, project_root) = get_project_db(&app, &state, &project_id).await?;
+    let registry = get_provider_registry(&app, &state).await?;
+    let agents_root = agents_dir(&app)?;
+    let agent_defs = load_agents_from_dir(&agents_root).map_err(|e| format!("load_agents_from_dir: {e}"))?;
+
+    let result = opc_task::run_assigned_task(&project_db, &project_root, &registry, &agent_defs, &workflow_id, &node_key)
+        .await
+        .map_err(|e| format!("run_assigned_task: {e}"))?;
+    Ok(TaskRunInfo { task_run_id: result.task_run_id, provider_id: result.provider_id, artifact_ids: result.artifact_ids })
+}
+
 pub fn run() {
     tauri::Builder::default()
         .manage(OpcState::default())
@@ -501,7 +574,12 @@ pub fn run() {
             opc_workflow_run_task,
             opc_workflow_gates,
             opc_workflow_approve_gate,
-            opc_workflow_reject_gate
+            opc_workflow_reject_gate,
+            opc_task_claimable_tasks,
+            opc_task_manual_tasks,
+            opc_task_claim,
+            opc_task_assign_manually,
+            opc_task_run
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

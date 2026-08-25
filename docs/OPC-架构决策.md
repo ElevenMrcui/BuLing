@@ -225,6 +225,21 @@ Rust 端用 `keyring` crate 统一封装。
 
 **下一步（P0.5+）**：`opc-task` 把 `manual`/`auto-claim` 节点的指派/认领逻辑接上；`qa_gate` 这类 `condition` 节点需要一个表达式求值器；上游 Artifact 内容注入 Prompt 是让 Agent 产出真正有意义的下一件大事。
 
+### ADR-005 附注 6 · `runtime/crates/opc-task` 落地（P0.5）—— manual/auto-claim 指派
+
+`opc-workflow` 只驱动 `assignment=template` 的节点；`manual`/`auto-claim` 节点在实例化时 `assigned_agent_id` 留空，没有任何生产路径能把它填上。`opc-task` 补的就是"谁来干"这一步，定下来之后复用 `opc_workflow::run_task_node` 执行，不重新实现一遍执行链。
+
+- **认领打分**（`claim.rs`）：`compute_claim_scores()` 是个纯函数——节点声明的 `role`（如 `frontend_dev` 的 `role: frontend`）当作"这个节点需要什么能力"的提示，去查对应 `AgentDefinition.capabilities` 当需求集合，项目团队里每个 `agent_instance` 按自己模板的 `capabilities` 与需求集合的重合个数打分，`claim_task()` 选最高分（且 > 0）的中标，写 `assigned_agent_id` + `status='assigned'` + `claim_scores`（JSON 快照）。**诚实标注**：这不是真的"Agent 自主投标"，是一个能力匹配分；今天团队固定 9 个不重复预置岗位，这个算法几乎总选回 `role` 提示的那个岗位本身，等以后允许自定义/派生 Agent 参与认领才真正派上用场。
+- **手动指派**（`manual.rs`）：`assign_task_manually()` 直接把 `agent_instance_id` 写进 `assigned_agent_id`——存不存在这个 id 交给 `tasks.assigned_agent_id` 的外键约束兜底，不重复校验。
+- **就绪校验**：两个入口在写库前都会再查一遍 DAG 依赖是否满足（`readiness.rs`），不是只在 `list_claimable_tasks`/`list_manual_tasks` 这两个"给 UI 用的建议列表"里过滤——直接调底层函数的调用方不该绕过这层校验。
+- **驱动**（`runner.rs`）：`run_assigned_task()` 是个薄封装，找到 `TaskRow` + `TemplateNode` 后直接转发给 `opc_workflow::run_task_node()`。
+
+**开发时撞见的一个真实 bug**（不是 opc-task 自己的，是上一轮 opc-workflow 遗留的）：`frontend_dev`/`backend_dev` 的 output 是 `{ kind: source, path: frontend/** }`——`path` 解析后 `len() == 1`（是个裸字符串，不是列表），会被上一版 `run_task_node` 的"只支持单路径"校验错误地放行，实际把 LLM 吐出的文本写成一个字面叫 `frontend/**` 的文件——这是错的，`frontend/**` 是"整个目录"的 glob 契约，不是一个真实文件名。修法是在 `opc-workflow::runner::run_task_node` 里加一个 `is_glob_like()` 检查（路径含 `*`/`?`/`[` 就拒绝），跟"多路径"校验合并成一条"是否单个字面文件路径"的判断，`Error::UnsupportedOutputShape` 覆盖两种情况。**这个修复在 opc-workflow 里，但是靠给 opc-task 写测试才发现的**——`standard-software-delivery.yaml` 里全部三个 `manual`/`auto-claim` 节点（`frontend_dev`/`backend_dev`/`bug_fix`）的 output 都是这种目录级 glob，一次 LLM 调用产不出一整个目录的多份具名源码文件，这不是 `opc-task` 能解决的问题——是比它大得多的另一件事（"一次 Agent 产出多份具名文件"这种能力）。
+
+**测试**：10 个——纯函数打分排序（含同分按 id 升序的确定性校验）、认领成功/依赖未满足/节点类型不对三种路径、`list_claimable_tasks`/`list_manual_tasks` 只返回就绪节点、手动指派成功/未知 agent_instance 被外键拒绝、`run_assigned_task` 对真实模板的 glob 输出正确拒绝而不是写出垃圾文件（并断言磁盘上确实什么都没写）、以及一条用合成模板（单文件输出的 `manual` 节点）证明"指派 → 执行 → 落盘登记 Artifact"全链路真的能跑通的端到端测试。workspace 累计 53 个测试全绿。
+
+**下一步（P0.5+）**：`qa_gate` 这类 `condition` 节点的表达式求值器；"一次 Agent 产出一整个目录的多份具名文件"这个新的执行模型（会让 `frontend_dev`/`backend_dev`/`bug_fix` 真正跑起来）；`opc-privacy`/`opc-audit` 补齐 execution_logs 的写入路径。
+
 ---
 
 ## ADR-006 · 依赖沿用：`apps/local-gateway` 与 `packages/cli-registry` 短期保留

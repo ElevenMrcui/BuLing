@@ -35,7 +35,7 @@ pub enum Error {
     #[error("node {0} 没有可解析的 agent_instance（角色未实例化，或 assignment 不是 template）")]
     AgentInstanceNotFound(String),
 
-    #[error("node {0} 的 output.path 是多路径（glob 目录），P0 的 run_task_node 不支持——这类节点应该走 manual/auto-claim，不应该出现在 list_ready_agent_tasks 的结果里")]
+    #[error("node {0} 的 output.path 是多路径或 glob 目录（如 frontend/**），P0 的 run_task_node 只认单个字面文件路径，不支持——这类节点产出整个目录/多份文件，不是这一版模型能表达的")]
     UnsupportedOutputShape(String),
 }
 

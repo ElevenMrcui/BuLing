@@ -109,19 +109,21 @@ Provider Router 按序尝试；第一个 `status=connected` 的命中。方便"�
 覆盖字段：`system_prompt_override` / `provider_priority_override` / `permission_override`——`NULL` 表示继承模板，否则用覆盖值。
 
 ### 3.6 `tasks.assignment_mode`
-三种协作策略（见 [`OPC-产品定义.md § 8`](OPC-产品定义.md)）：
+三种协作策略（见 [`templates/README.md § Assignment 三种策略`](../templates/README.md)）：
 - `template` = 模板默认岗位，平台推荐 Provider
 - `manual` = 用户手动指派
 - `auto-claim` = 广播给能力池，Agent 意愿分认领
 
 `claim_scores` 存本次广播的意愿分快照，用于 UI 展示"谁想干这个任务，为什么"。
 
+**Rust 实现**：`runtime/crates/opc-task`——`claim_task()` 算能力匹配分（节点 `role` 提示对应 `AgentDefinition.capabilities` 当需求集合，团队每个 `agent_instance` 按自己 `capabilities` 与需求集合的重合个数打分，最高分中标）并写 `claim_scores`；`assign_task_manually()` 直接写 `assigned_agent_id`（存在性交给外键约束兜底）。**这不是真的"Agent 自主投标"**，P0 是一个确定性的能力匹配分，见 `docs/OPC-架构决策.md` ADR-005 附注 6。
+
 ### 3.7 `task_runs` = 每次执行尝试
 同一 task 可有多个 task_run：失败重试 / 用户重新触发 / 打回后 rerun。旧 run 状态置 `superseded`，不删。
 
 `report_artifact_id` 指向本次强制产出的 `Report.md`——**没产 Report 就不算完成**（Runtime 侧的硬校验，P0 尚未接，见下）。
 
-**Rust 实现**：`runtime/crates/opc-workflow`——`instantiate_workflow()` 把 `templates/*.yaml` 解析出的 `WorkflowTemplate`（`dag` 字段存整份 JSON 快照）落成一行 `workflows` + 逐节点一行 `tasks` + 逐 Gate 一行 `gates`；`run_task_node()` 驱动 `kind=agent · assignment=template` 的节点真正执行并落盘 Artifact。`kind=human` 节点（评审红线）永远不会被自动推进，只能通过 `approve_gate()`/`reject_gate()` 显式人工触发。`manual`/`auto-claim` 节点、`condition` 节点表达式求值、Report.md 强制产出这一版都还没接，见 `docs/OPC-架构决策.md` ADR-005 附注 5。
+**Rust 实现**：`runtime/crates/opc-workflow`——`instantiate_workflow()` 把 `templates/*.yaml` 解析出的 `WorkflowTemplate`（`dag` 字段存整份 JSON 快照）落成一行 `workflows` + 逐节点一行 `tasks` + 逐 Gate 一行 `gates`；`run_task_node()` 驱动 `kind=agent` 的节点真正执行并落盘 Artifact（`opc-task::run_assigned_task()` 对 `manual`/`auto-claim` 节点复用同一个函数，不重复实现）。`kind=human` 节点（评审红线）永远不会被自动推进，只能通过 `approve_gate()`/`reject_gate()` 显式人工触发。`condition` 节点表达式求值、"一次 Agent 产出一整个目录的多份具名文件"（`frontend_dev`/`backend_dev`/`bug_fix` 这几个节点需要的能力）、Report.md 强制产出这一版都还没接，见 `docs/OPC-架构决策.md` ADR-005 附注 5/6。
 
 ### 3.8 `artifacts` + `artifact_versions` + `artifact_refs`
 三张表拼出"追溯图"：

@@ -32,6 +32,14 @@ pub struct TaskRow {
     pub status: String,
 }
 
+/// `frontend/**` / `backend/**` 这类 output path 是"整个目录"的 glob 契约，
+/// 不是字面文件路径——即便 `OneOrMany` 解析后 `path.len() == 1`，也不能当成
+/// 一个真实文件名传给 `write_and_register_artifact`（会真的写出一个字面叫
+/// `frontend/**` 的文件，语义上是错的）。见 `run_task_node` 里的用法。
+fn is_glob_like(path: &str) -> bool {
+    path.contains('*') || path.contains('?') || path.contains('[')
+}
+
 pub async fn load_dag(project_db: &ProjectDb, workflow_id: &str) -> Result<WorkflowTemplate> {
     let row: Option<(String,)> =
         sqlx::query_as("SELECT dag FROM workflows WHERE id = ?").bind(workflow_id).fetch_optional(&project_db.pool).await?;
@@ -91,10 +99,14 @@ pub struct RunTaskNodeOutput {
 ///    的事。
 /// 2. 一次 Provider 调用吐出的同一段文本，**原样写进这个节点声明的每一个
 ///    output 路径**——不会把一段话拆成几份不同内容的文件。
-/// 3. 只支持 `output.path` 是单个字符串的节点（模板里 `assignment=template`
-///    的节点全部满足这一条）；`path` 是列表的节点（glob 目录）属于
-///    manual/auto-claim，`list_ready_agent_tasks` 不会选中，误传进来会报
-///    `Error::UnsupportedOutputShape`。
+/// 3. 只支持 `output.path` 是单个字面文件路径的节点（模板里
+///    `assignment=template` 的节点全部满足这一条）；`path` 是列表、或单个
+///    但形如 `frontend/**` 的 glob 目录契约（`assignment=manual`/`auto-claim`
+///    的开发类节点常是这种——一次 LLM 调用产不出一整个目录的多份源码文件），
+///    会报 `Error::UnsupportedOutputShape`，不会把内容错写成一个字面叫
+///    `frontend/**` 的文件。`opc-task` crate 复用这个函数驱动
+///    manual/auto-claim 节点执行时，同样会撞上这个限制——这是诚实的能力
+///    边界，不是遗漏。
 pub async fn run_task_node(
     project_db: &ProjectDb,
     project_root: &Path,
@@ -110,7 +122,8 @@ pub async fn run_task_node(
         agent_defs.iter().find(|a| a.id == role_id).ok_or_else(|| Error::AgentInstanceNotFound(role_id.clone()))?;
 
     for node_output in &node.outputs {
-        if node_output.path.len() != 1 {
+        let is_single_literal_path = node_output.path.len() == 1 && !is_glob_like(&node_output.path[0]);
+        if !is_single_literal_path {
             return Err(Error::UnsupportedOutputShape(task.node_key.clone()));
         }
     }

@@ -31,7 +31,7 @@ runtime/
 │   ├── opc-tool/                  ✅ 项目内文件写入（沙箱化）+ Artifact 登记（8 测试）见 §Tool 层
 │   ├── opc-project/                ✅ 创建 / 打开 / 列出 project · 把预置 Agent 实例化进团队（8 测试）见 §Project 层
 │   ├── opc-workflow/               ✅ 加载 templates/*.yaml · 实例化 DAG · 驱动 Agent 节点 · 人工 Gate（7 测试）见 §Workflow 层
-│   ├── opc-task/                  Task 生命周期 · TaskRun 调度 · 认领意愿分（manual/auto-claim 节点的执行路径）
+│   ├── opc-task/                  ✅ manual/auto-claim 节点指派 · 能力匹配认领分 · 驱动已指派节点执行（10 测试）见 §Task 层
 │   ├── opc-mcp/                   MCP client
 │   ├── opc-privacy/                隐私哨兵：外发拦截 / 数据脱敏
 │   └── opc-audit/                 ExecutionLog append-only 写入
@@ -100,6 +100,21 @@ Tauri IPC `opc_create_project` / `opc_list_projects` 已联通，桌面壳「项
 
 Tauri IPC `opc_create_project`（加了 `template_id` 参数）+ `opc_workflow_tasks` / `opc_workflow_ready_tasks` / `opc_workflow_run_task` / `opc_workflow_gates` / `opc_workflow_approve_gate` / `opc_workflow_reject_gate` 已联通，桌面壳新增「工作流中心」卡片。
 
+## Task 层（`opc-task`，已落地）
+
+补 `opc-workflow` 只驱动 `assignment=template` 节点留下的缺口：`manual`/`auto-claim` 节点谁来干、怎么定下来。定下来之后复用 `opc_workflow::run_task_node` 执行，不重新实现一遍执行链。
+
+- `claim::compute_claim_scores()` —— 纯函数：节点 `role` 提示对应的 `AgentDefinition.capabilities` 当需求集合，项目团队里每个 `agent_instance` 按自己 `capabilities` 与需求集合的重合个数打分；`claim_task()` 选最高分（且 > 0）的中标，写 `assigned_agent_id` + `status='assigned'` + `claim_scores`
+- `manual::assign_task_manually()` —— 直接把 `agent_instance_id` 写进 `assigned_agent_id`；id 是否存在交给外键约束兜底
+- `readiness.rs` —— 两个入口写库前都会再查一遍 DAG 依赖是否满足，不只是 `list_claimable_tasks`/`list_manual_tasks` 这两个"给 UI 用的建议列表"里过滤
+- `runner::run_assigned_task()` —— 薄封装，找到 `TaskRow` + `TemplateNode` 后直接转发给 `opc_workflow::run_task_node()`
+
+**开发时在 opc-workflow 里发现并修的一个真实 bug**：`frontend_dev`/`backend_dev` 的 output（`{ path: frontend/** }`）解析后是单个字符串、不是列表，被旧版"只支持单路径"校验错误放行，会把 LLM 输出字面写进一个叫 `frontend/**` 的文件——`frontend/**` 是整个目录的 glob 契约，不是真实文件名。已在 `opc-workflow::runner::run_task_node` 加 glob 路径校验修掉。
+
+**诚实标注**：`standard-software-delivery.yaml` 里全部 `manual`/`auto-claim` 节点的 output 都是这种目录级 glob，`claim_task`/`assign_task_manually` 本身能正常工作，但 `run_assigned_task` 对这几个节点会正确报错拒绝（不是遗漏，是"一次 Agent 产出一整个目录的多份具名文件"这种能力目前还不存在，比这个 crate 大得多的另一件事）；这不是能力匹配算法真的在模拟"Agent 自主投标"，是确定性的能力重合打分——见 `docs/OPC-架构决策.md` ADR-005 附注 6。
+
+Tauri IPC `opc_task_claimable_tasks` / `opc_task_manual_tasks` / `opc_task_claim` / `opc_task_assign_manually` / `opc_task_run` 已联通，「工作流中心」卡片新增认领/指派入口。
+
 ## 双层 SQLite 布局
 
 **为什么两层？** 为了让"项目"是**独立可迁移单元**——把整个项目文件夹拷贝到别的机器还能用；不需要跨项目的公共设置。
@@ -151,5 +166,5 @@ Tauri IPC `opc_create_project`（加了 `template_id` 参数）+ `opc_workflow_t
 4. ✅ `opc-tool` —— fs.write（沙箱化）+ Artifact 登记；`run_task` 的产出能真正落盘
 5. ✅ `opc-project` —— 创建 project 目录 + project.sqlite + 把预置 Agent"实例化"进 `agent_instances`；Tauri IPC `opc_create_project`/`opc_list_projects` 已联通，桌面壳「项目中心」可用
 6. ✅ `opc-workflow` —— 加载 `templates/*.yaml` + DAG 实例化，把 `run_task` + `write_and_register_artifact` 接进节点，`approve_gate`/`reject_gate` 是评审红线唯一入口；Tauri IPC 六个工作流命令已联通，桌面壳「工作流中心」可用
-7. `opc-task` —— `manual`/`auto-claim` 节点的指派/认领逻辑 · TaskRun 调度 · 认领意愿分
-8. `opc-privacy` + `opc-audit` —— 每次外发和 tool 调用都写日志
+7. ✅ `opc-task` —— `manual`/`auto-claim` 节点的指派/认领逻辑（能力匹配打分）；Tauri IPC 五个命令已联通
+8. `opc-privacy` + `opc-audit` —— 每次外发和 tool 调用都写日志；`condition` 节点表达式求值器；"一次 Agent 产出一整个目录的多份具名文件"这个新的执行模型

@@ -7,6 +7,7 @@ members = [
     "crates/opc-tool",
     "crates/opc-project",
     "crates/opc-workflow",
+    "crates/opc-task",
 ]
 
 [workspace.package]

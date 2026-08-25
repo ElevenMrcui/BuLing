@@ -1010,6 +1010,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "opc-task"
+version = "0.1.0"
+dependencies = [
+ "opc-agent",
+ "opc-project",
+ "opc-provider",
+ "opc-storage",
+ "opc-workflow",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "wiremock",
+]
+
+[[package]]
 name = "opc-tool"
 version = "0.1.0"
 dependencies = [

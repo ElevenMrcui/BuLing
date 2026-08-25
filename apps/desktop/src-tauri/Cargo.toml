@@ -26,6 +26,7 @@ opc-provider = { path = "../../../runtime/crates/opc-provider" }
 opc-agent = { path = "../../../runtime/crates/opc-agent" }
 opc-project = { path = "../../../runtime/crates/opc-project" }
 opc-workflow = { path = "../../../runtime/crates/opc-workflow" }
+opc-task = { path = "../../../runtime/crates/opc-task" }
 
 # tauri 2 dev / release features
 [features]

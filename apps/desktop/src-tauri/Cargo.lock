@@ -2350,6 +2350,7 @@ dependencies = [
  "opc-project",
  "opc-provider",
  "opc-storage",
+ "opc-task",
  "opc-workflow",
  "serde",
  "serde_json",
@@ -2393,6 +2394,22 @@ name = "opc-storage"
 version = "0.1.0"
 dependencies = [
  "futures-util",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "opc-task"
+version = "0.1.0"
+dependencies = [
+ "opc-agent",
+ "opc-provider",
+ "opc-storage",
+ "opc-workflow",
  "serde",
  "serde_json",
  "sqlx",
