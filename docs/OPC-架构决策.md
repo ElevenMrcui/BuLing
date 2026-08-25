@@ -272,6 +272,17 @@ Rust 端用 `keyring` crate 统一封装。
 - **Vue**：也可以，但目前团队 React 更熟
 - **HTMX + Alpine**：太保守，Tauri IPC 复杂交互撑不住
 
+### ADR-007 附注 · 落地（P0.5）—— 桌面壳从单页手写 CSS 重做成 shadcn/Tailwind 多页应用
+
+`apps/desktop` 早期几轮迭代（验证 IPC 链路阶段）图快，直接在空白 Vite+React 脚手架上写了一版手写 CSS 的单页——先把"后端真的通不通"跑明白，样式先放一边。这条路径实际上**偏离了本 ADR 的决定**，且直到用户追问"为什么跟原型不一致"才发现、被追认修正。补的东西：
+
+- **Tailwind CSS 3.4 + PostCSS**：`tailwind.config.ts` 用 shadcn 惯例的 HSL CSS 变量做主题（`--background`/`--primary`/`--destructive`/… 在 `src/index.css` 定义），数值沿用 `legacy/prototype/index.html` 已验证过的配色/圆角/阴影 token（`--accent: #0071e3` 换算成 HSL 分量这类），复用的是审美和数值，不是抄代码
+- **shadcn/ui 模式**（不是 npm 依赖，是"复制进仓库"的组件源码）：`src/components/ui/` 下手写了 `button.tsx`/`input.tsx`/`select.tsx`/`checkbox.tsx`/`label.tsx`/`card.tsx`/`badge.tsx`，基于 `@radix-ui/react-*` 无障碍原语 + `class-variance-authority` 变体 + `tailwind-merge`/`clsx` 的 `cn()` helper——这就是 shadcn 生成器本来会产出的那套东西，只是没跑 CLI（CLI 需要额外的注册表交互，手写等价物更可控）
+- **深浅色三态改成 class 策略**：Tailwind 的 `darkMode:["class"]` 本身不认"跟随系统"，`theme.ts` 用 `matchMedia` 现解一遍 OS 偏好，"系统"选项额外监听 OS 主题变化——这是 `next-themes` 一类库的标准做法，不是发明新轮子
+- **图标从手写 SVG 换成 `lucide-react`**：shadcn 生态的标配图标库，比手绘一遍更省、更全
+
+**页面结构没变**：`Sidebar` + `views/*`（控制台/项目中心/团队中心/工作流中心/模型中心 + 通用占位页）这套信息架构和状态管理逻辑原样保留，只是把渲染层从手写 CSS class 换成 Tailwind utility + shadcn 组件——`cargo build --release` + Xvfb 截图重新验证过一遍（含 Radix Select 下拉、Radix Checkbox、深浅色切换、真实项目数据渲染），视觉和交互都对得上，见 `apps/desktop/README.md` § 设计系统。
+
 ---
 
 ## ADR-008 · 命名：主品牌沿用「不令」，产品线定位为 OPC

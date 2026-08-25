@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   不令 OPC · 设计令牌（shadcn/ui 惯例：HSL 三分量，不带 hsl()/单位）
+   数值沿用 legacy/prototype/index.html 已验证过的配色——不是抄代码，是把
+   同一套 Apple-HIG 风格审美语言换成 Tailwind/shadcn 的变量命名规范。
+   ============================================================ */
+@layer base {
+  :root {
+    --background: 240 9% 96%;
+    --foreground: 240 6% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 10%;
+
+    --primary: 212 100% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 90%;
+    --secondary-foreground: 240 6% 10%;
+    --muted: 240 5% 93%;
+    --muted-foreground: 240 3% 43%;
+    --accent: 212 100% 95%;
+    --accent-foreground: 212 100% 40%;
+    --destructive: 355 100% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 130 60% 29%;
+    --success-foreground: 0 0% 100%;
+    --warning: 29 100% 35%;
+    --warning-foreground: 0 0% 100%;
+    --purple: 285 45% 47%;
+    --purple-foreground: 0 0% 100%;
+
+    --border: 240 6% 88%;
+    --input: 240 6% 82%;
+    --ring: 212 100% 45%;
+
+    --radius-s: 10px;
+    --radius-m: 16px;
+    --radius-l: 22px;
+    --radius-pill: 999px;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 1px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 240 9% 96%;
+    --card: 240 4% 11%;
+    --card-foreground: 240 9% 96%;
+    --popover: 240 4% 11%;
+    --popover-foreground: 240 9% 96%;
+
+    --primary: 211 100% 54%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4% 22%;
+    --secondary-foreground: 240 9% 96%;
+    --muted: 240 6% 8%;
+    --muted-foreground: 240 2% 60%;
+    --accent: 211 90% 16%;
+    --accent-foreground: 211 100% 66%;
+    --destructive: 3 100% 62%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 141 72% 52%;
+    --success-foreground: 0 0% 0%;
+    --warning: 36 100% 52%;
+    --warning-foreground: 0 0% 0%;
+    --purple: 286 84% 65%;
+    --purple-foreground: 0 0% 0%;
+
+    --border: 240 4% 22%;
+    --input: 240 4% 28%;
+    --ring: 211 100% 54%;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.6);
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+  }
+  button {
+    font-family: inherit;
+  }
+  ::selection {
+    @apply bg-primary/20;
+  }
+}

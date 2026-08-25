@@ -111,15 +111,16 @@
 │       ├── product/ · technical/ · project/ · design/ · qa/ · acceptance/
 │
 ├── apps/
-│   ├── desktop/                     ✅ Tauri 2 桌面壳（骨架已落地 · 窗口级冒烟已验证 · 可打包 .deb）
-│   │   ├── package.json             Vite + React + @tauri-apps/api
-│   │   ├── src/                     React 前端（项目中心 + 存储层状态 + 预置岗位 + Provider 发现列表）
+│   ├── desktop/                     ✅ Tauri 2 桌面壳（真实多页应用 · 端到端真实调用已验证 · 可打包 .deb）
+│   │   ├── package.json             Vite + React + @tauri-apps/api + Tailwind CSS + shadcn/ui 模式
+│   │   ├── src/                     React 前端 —— Sidebar（13 个一级菜单）+ views/（6 个接了真实后端 + 通用占位页）
+│   │   │                            见 apps/desktop/README.md § 设计系统
 │   │   └── src-tauri/               Rust 后端（薄壳 · 引用 opc-storage + opc-provider + opc-agent + opc-project + opc-workflow + opc-task）
 │   │                                IPC: opc_status · opc_providers · opc_agents · opc_create_project · opc_list_projects
-│   │                                     · opc_workflow_tasks · opc_workflow_ready_tasks · opc_workflow_run_task
-│   │                                     · opc_workflow_gates · opc_workflow_approve_gate · opc_workflow_reject_gate
-│   │                                     · opc_task_claimable_tasks · opc_task_manual_tasks · opc_task_claim
-│   │                                     · opc_task_assign_manually · opc_task_run
+│   │                                     · opc_project_workflow · opc_workflow_tasks · opc_workflow_ready_tasks
+│   │                                     · opc_workflow_run_task · opc_workflow_gates · opc_workflow_approve_gate
+│   │                                     · opc_workflow_reject_gate · opc_task_claimable_tasks · opc_task_manual_tasks
+│   │                                     · opc_task_claim · opc_task_assign_manually · opc_task_run
 │   └── local-gateway/               本机守护进程 · 127.0.0.1 + Token · 短期沿用
 │                                    P0 后期融入 runtime/crates/opc-provider
 │
@@ -174,7 +175,7 @@ make gateway              # http://127.0.0.1:17817
 
 ## 使用教程
 
-> **当前进度提醒**：Runtime 已跑通 Storage / Provider / Agent / Tool / Project / Workflow / Task 七层，桌面壳能真的**创建项目、把 9 位预置岗位实例化进项目团队、发现本机可用的 AI 引擎、跑通"选模板 → Agent 接力产出 → 评审红线通过/打回 → 认领/指派下一阶段"这条链的前半段**。止步的地方是诚实的边界：前后端开发这几个节点需要"一次 Agent 产出一整个目录的多份源码文件"，这是比现有 Artifact 模型大得多的另一件事，还没做——下面教程会讲到具体停在哪。
+> **当前进度提醒**：Runtime 已跑通 Storage / Provider / Agent / Tool / Project / Workflow / Task 七层，桌面壳是一个真实的多页应用（侧边栏 13 个一级菜单，视觉语言沿用 `legacy/prototype` 验证过的 token 系统），能真的**创建项目、把 9 位预置岗位实例化进项目团队、发现本机可用的 AI 引擎、跑通"选模板 → Agent 接力产出 → 评审红线通过/打回 → 认领/指派下一阶段"这条链的前半段**。止步的地方是诚实的边界：前后端开发这几个节点需要"一次 Agent 产出一整个目录的多份源码文件"，这是比现有 Artifact 模型大得多的另一件事，还没做——下面教程会讲到具体停在哪。
 
 ### 1. 准备环境
 
@@ -206,7 +207,7 @@ make desktop-dev   # 需要图形环境（macOS / Linux X11·Wayland）；无图
 
 ### 3. 建第一个项目
 
-窗口顶部「项目中心」卡片：
+左侧侧边栏点「项目中心」：
 1. **slug**：项目短标识，如 `health-app`（同一 slug 不能重复建）
 2. **项目名**：如 `健康管理 App`
 3. **本地目录**：一个本地绝对路径，如 `/Users/you/opc-projects/health-app`（目录不存在会自动创建）
@@ -221,11 +222,11 @@ health-app/
     └── project.sqlite     ← 项目级 SQLite：已经有一条「默认团队」+ 9 位 Agent 实例
                               + 一条正在跑的工作流（16 个任务节点 + 4 个 Gate）
 ```
-列表会立刻刷新，显示这个新项目（按最近打开排序）；如果勾了工作流，页面上会多出一块「工作流中心」卡片。
+项目列表会立刻刷新；如果勾了工作流，页面会自动跳到侧边栏的「工作流中心」，项目已经帮你选好。
 
 ### 4. 跑工作流第一步 · 体验评审红线
 
-「工作流中心」卡片分两块：
+「工作流中心」右上角可以切换项目，页面分两块：
 
 - **任务节点**：16 个节点（PRD → 技术方案 → 架构 → 排期/设计 → 前后端开发 → 测试 → 验收），当前能跑的节点（依赖已满足 · 岗位已就绪）旁边会出现「跑这个节点」按钮。项目刚建好时只有 `prd` 是可跑的——点一下，产品经理岗位会真的调一次 AI 引擎，产出 PRD/验收标准/用户故事三份文档，直接写进项目目录并在任务列表里标记为 `completed`。
 - **评审红线（人工 Gate）**：`prd` 跑完后，下一个节点 `prd_review` 是人工评审节点——**不会自动放行**，「评审红线」卡片里会出现「通过」/「打回」两个按钮。点「通过」，`tech_selection`（技术负责人）才会出现在任务节点里变成可跑；点「打回」，`prd` 会被重置回待办，重新出现「跑这个节点」按钮。

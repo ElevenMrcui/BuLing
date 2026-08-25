@@ -92,6 +92,14 @@ pub struct GateInfo {
 }
 
 #[derive(Debug, Serialize)]
+pub struct WorkflowSummary {
+    pub id: String,
+    pub template_id: String,
+    pub name: String,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct TaskRunInfo {
     pub task_run_id: String,
     pub provider_id: String,
@@ -386,6 +394,21 @@ async fn opc_list_projects(app: tauri::AppHandle, state: State<'_, OpcState>) ->
         .collect())
 }
 
+/// 查一个项目最近一条工作流（不管状态）——「工作流中心」作为独立页面时，
+/// 从「项目中心」选一个已有项目打开，靠这个命令找到它的工作流 id，不用
+/// 依赖"刚建完项目"那次 `opc_create_project` 返回值里带的 `active_workflow_id`。
+#[tauri::command]
+async fn opc_project_workflow(app: tauri::AppHandle, state: State<'_, OpcState>, project_id: String) -> Result<Option<WorkflowSummary>, String> {
+    let (project_db, _root) = get_project_db(&app, &state, &project_id).await?;
+    let row: Option<(String, String, String, String)> = sqlx::query_as(
+        "SELECT id, template_id, name, status FROM workflows ORDER BY created_at DESC LIMIT 1",
+    )
+    .fetch_optional(&project_db.pool)
+    .await
+    .map_err(|e| format!("query workflow: {e}"))?;
+    Ok(row.map(|(id, template_id, name, status)| WorkflowSummary { id, template_id, name, status }))
+}
+
 /// 列出一个工作流的全部任务节点（不筛可执行性，给 UI 画完整任务列表用）。
 #[tauri::command]
 async fn opc_workflow_tasks(app: tauri::AppHandle, state: State<'_, OpcState>, project_id: String, workflow_id: String) -> Result<Vec<TaskInfo>, String> {
@@ -569,6 +592,7 @@ pub fn run() {
             opc_agents,
             opc_create_project,
             opc_list_projects,
+            opc_project_workflow,
             opc_workflow_tasks,
             opc_workflow_ready_tasks,
             opc_workflow_run_task,
