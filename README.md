@@ -164,6 +164,75 @@ make gateway              # http://127.0.0.1:17817
 
 ---
 
+## 使用教程
+
+> **当前进度提醒**：Runtime 已跑通 Storage / Provider / Agent / Tool / Project 五层，桌面壳能真的**创建项目、把 9 位预置岗位实例化进项目团队、发现本机可用的 AI 引擎**。但"选模板 → 自动派单 → Agent 接力产出 → 评审红线"这条工作流编排链（`opc-workflow` / `opc-task`）还没接上，所以下面教程止于"建团队"，还不能端到端跑出一个完整交付。
+
+### 1. 准备环境
+
+```bash
+# 需要：Node.js 18+ / pnpm / Rust stable 工具链（cargo）
+pnpm install
+```
+
+想让「模型中心」发现真实可用的 AI 引擎，任选其一（都不装也能跑，只是 Provider 全部显示"不可用"）：
+
+- **本机已装 AI CLI**：Claude Code（`claude`）等会被自动发现，无需任何配置
+- **API 厂商 Key**：设置对应环境变量（Key 只在内存里用一次，正式版会走 OS Keychain 而不是环境变量），例如：
+  ```bash
+  export OPC_KEY_ANTHROPIC=sk-...   # providers/anthropic
+  export OPC_KEY_OPENAI=sk-...      # providers/openai
+  export OPC_KEY_GLM=...            # providers/glm
+  export OPC_KEY_QWEN=...           # providers/qwen
+  export OPC_KEY_DEEPSEEK=...       # providers/deepseek
+  ```
+- **本地模型**：装好 Ollama / LM Studio 并保持在默认端口运行即可，无需 Key
+
+### 2. 起桌面 App
+
+```bash
+make desktop-dev   # 需要图形环境（macOS / Linux X11·Wayland）；无图形环境用 make desktop-check 验证能编译
+```
+
+首次启动会自动：建 `~/.opc/db.sqlite`（APP 级库）→ 跑 migration → 把 `agents/*.yaml` 的 9 位预置岗位播种进库。
+
+### 3. 建第一个项目
+
+窗口顶部「项目中心」卡片：
+1. **slug**：项目短标识，如 `health-app`（同一 slug 不能重复建）
+2. **项目名**：如 `健康管理 App`
+3. **本地目录**：一个本地绝对路径，如 `/Users/you/opc-projects/health-app`（目录不存在会自动创建）
+4. **目标**（可选）：一句话描述，如 `做一个健康管理 App`
+5. 点「创建项目」
+
+创建成功后可以在这个目录下看到：
+```
+health-app/
+└── .opc/
+    └── project.sqlite     ← 项目级 SQLite：已经有一条「默认团队」+ 9 位 Agent 实例
+```
+列表会立刻刷新，显示这个新项目（按最近打开排序）。
+
+### 4. 看团队 & 引擎组阁结果
+
+- **团队中心 · 预置 AI 岗位** 卡片：列出全部 9 位预置岗位（产品经理 / 技术负责人 / 架构师 / 项目经理 / 设计师 / 前端 / 后端 / 测试 / 验收），每位岗位标注 `sensitivity` 和 `provider_priority`（尝试引擎的优先顺序）
+- **模型中心 · Provider 发现** 卡片：列出全部 11 家已知引擎（CLI / API / 本地），绿点表示当前机器上真的可用（装了对应 CLI，或环境变量/Keychain 里有对应 Key，或本地模型服务在跑）
+
+这两块合起来就是"一分钟组阁"承诺的当前实现：**根据你机器上实际有什么能力，决定每个岗位实际会用哪个引擎干活**。
+
+### 5. 命令行验证（不想开图形界面时）
+
+```bash
+make runtime-test   # 跑全部 36 个 Rust 集成/单元测试，验证 Storage/Provider/Agent/Tool/Project 五层逻辑
+make desktop-check  # 无窗口验证前端 + Rust 后端都能编译
+```
+
+### 接下来会怎样
+
+`opc-workflow` 落地后，创建项目时会同时选一个工作流模板（如"标准软件交付流"），团队会按模板自动把 PRD → 架构 → 开发 → 测试 → 验收 的任务派发下去，Agent 产出会自动写进「产出中心」并触发下一环节，遇到评审红线卡点时弹窗等人工确认。这条链还在建，进度见 [`runtime/README.md` § P0 落地顺序](runtime/README.md#p0-落地顺序)。
+
+---
+
 ## 从哪读起
 
 - **产品全景**：本 README → [`docs/OPC-产品定义.md`](docs/OPC-产品定义.md)
