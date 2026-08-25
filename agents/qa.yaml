@@ -27,16 +27,11 @@ responsibilities:
   - 测试报告
 
 expected_outputs:
-  - path: docs/qa/Test-Plan.md
-    kind: markdown
-  - path: docs/qa/Test-Cases.md
-    kind: markdown
-  - path: docs/qa/Test-Report.md
-    kind: markdown
-  - path: docs/qa/Bug-Report.md
-    kind: markdown
-  - path: docs/qa/Regression-Report.md
-    kind: markdown
+  - { path: docs/qa/Test-Plan.md,          kind: test-plan }
+  - { path: docs/qa/Test-Cases.md,         kind: test-cases }
+  - { path: docs/qa/Test-Report.md,        kind: test-report }
+  - { path: docs/qa/Bug-Report.md,         kind: bug-report }
+  - { path: docs/qa/Regression-Report.md,  kind: regression-report }
 
 capabilities:
   - testing

@@ -24,14 +24,9 @@ responsibilities:
   - 与用户澄清需求歧义
 
 expected_outputs:
-  - path: docs/product/PRD.md
-    kind: markdown
-    template: prd
-  - path: docs/product/User-Stories.md
-    kind: markdown
-  - path: docs/product/Acceptance-Criteria.md
-    kind: markdown
-    template: acceptance
+  - { path: docs/product/PRD.md,                  kind: prd }
+  - { path: docs/product/User-Stories.md,         kind: user-stories }
+  - { path: docs/product/Acceptance-Criteria.md,  kind: acceptance }
 
 capabilities:
   - product-planning

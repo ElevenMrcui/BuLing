@@ -1,6 +1,11 @@
-# templates/ · 项目工作流模板
+# templates/ · 项目工作流模板 + Artifact 骨架
 
-模板 = **一个项目怎么从"目标"跑到"交付"的蓝图**。用户在"新建项目"时选一份模板，OPC 就按模板实例化 Team + Workflow 开始跑。
+本目录承载两类模板：
+
+1. **工作流模板**（顶层 `*.yaml`）—— 项目怎么从"目标"跑到"交付"的 DAG 蓝图
+2. **Artifact 模板**（`artifacts/**/*.md`）—— Agent 产出的每份 Markdown 文档的骨架 · 见 [`artifacts/README.md`](artifacts/README.md)
+
+用户在"新建项目"时选一份工作流模板，OPC 就按模板实例化 Team + Workflow 开始跑；每个 Agent 产出 Artifact 时 Runtime 会先复制对应 Artifact 模板，再让 Agent 填内容。
 
 ## 模板清单
 

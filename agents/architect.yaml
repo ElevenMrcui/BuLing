@@ -25,16 +25,11 @@ responsibilities:
   - 部署架构
 
 expected_outputs:
-  - path: docs/technical/Architecture.md
-    kind: markdown
-  - path: docs/technical/Database-Design.md
-    kind: markdown
-  - path: docs/technical/API-Spec.md
-    kind: markdown
-  - path: docs/technical/Security.md
-    kind: markdown
-  - path: docs/technical/Deployment.md
-    kind: markdown
+  - { path: docs/technical/Architecture.md,     kind: architecture }
+  - { path: docs/technical/Database-Design.md,  kind: db-design }
+  - { path: docs/technical/API-Spec.md,         kind: api-spec }
+  - { path: docs/technical/Security.md,         kind: security }
+  - { path: docs/technical/Deployment.md,       kind: deployment }
 
 capabilities:
   - system-architecture

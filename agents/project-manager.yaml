@@ -24,14 +24,10 @@ responsibilities:
   - 风险清单
 
 expected_outputs:
-  - path: docs/project/Project-Plan.md
-    kind: markdown
-  - path: docs/project/Task-List.md
-    kind: markdown
-  - path: docs/project/Milestone.md
-    kind: markdown
-  - path: docs/project/Risk.md
-    kind: markdown
+  - { path: docs/project/Project-Plan.md,  kind: project-plan }
+  - { path: docs/project/Task-List.md,     kind: task-list }
+  - { path: docs/project/Milestone.md,     kind: milestones }
+  - { path: docs/project/Risk.md,          kind: risk }
 
 capabilities:
   - project-management

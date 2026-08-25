@@ -24,14 +24,10 @@ responsibilities:
   - 组件复用识别
 
 expected_outputs:
-  - path: docs/design/UX-Overview.md
-    kind: markdown
-  - path: docs/design/Page-Structure.md
-    kind: markdown
-  - path: docs/design/Interaction.md
-    kind: markdown
-  - path: docs/design/Visual-Tokens.md
-    kind: markdown
+  - { path: docs/design/UX-Overview.md,    kind: ux-overview }
+  - { path: docs/design/Page-Structure.md, kind: page-structure }
+  - { path: docs/design/Interaction.md,    kind: interaction }
+  - { path: docs/design/Visual-Tokens.md,  kind: visual-tokens }
 
 capabilities:
   - ux-design

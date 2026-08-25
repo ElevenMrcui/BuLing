@@ -89,9 +89,13 @@
 │   ├── qa.yaml                      测试
 │   └── acceptance.yaml              验收（敏感度 high · 默认本地 Provider）
 │
-├── templates/                       工作流模板
+├── templates/                       工作流模板 + Artifact 骨架
 │   ├── README.md
-│   └── standard-software-delivery.yaml   标准软件交付流（Goal → PRD → 架构 → 开发 → 测试 → 验收）
+│   ├── standard-software-delivery.yaml   标准软件交付流（Goal → PRD → 架构 → 开发 → 测试 → 验收）
+│   └── artifacts/                   24 份 Markdown 骨架（PRD / 架构 / 测试报告 / 验收报告 …）
+│       ├── README.md
+│       ├── common/Report.md
+│       ├── product/ · technical/ · project/ · design/ · qa/ · acceptance/
 │
 ├── apps/
 │   ├── desktop/                     Tauri 2 桌面壳（占位 · P0 后段落地）

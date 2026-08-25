@@ -23,10 +23,8 @@ responsibilities:
   - 技术风险清单
 
 expected_outputs:
-  - path: docs/technical/Technology-Stack.md
-    kind: markdown
-  - path: docs/technical/Technical-Risk.md
-    kind: markdown
+  - { path: docs/technical/Technology-Stack.md,  kind: tech-stack }
+  - { path: docs/technical/Technical-Risk.md,    kind: tech-risk }
 
 capabilities:
   - tech-selection

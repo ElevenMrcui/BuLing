@@ -56,6 +56,7 @@
 | 本地网关 | [`docs/本地网关.md`](docs/本地网关.md) |
 | 预置 Agent | `agents/*.yaml` + [`agents/README.md`](agents/README.md) |
 | 工作流模板 | `templates/*.yaml` + [`templates/README.md`](templates/README.md) |
+| Artifact 骨架模板 | `templates/artifacts/**/*.md`（24 份 · 见 [`templates/artifacts/README.md`](templates/artifacts/README.md)） |
 | SQLite schema | `runtime/migrations/app/*.sql` · `runtime/migrations/project/*.sql` |
 | Runtime 规划 | [`runtime/README.md`](runtime/README.md) |
 | Provider 规划 | [`providers/README.md`](providers/README.md) |

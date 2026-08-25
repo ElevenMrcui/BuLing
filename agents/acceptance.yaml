@@ -27,8 +27,7 @@ responsibilities:
   - 最终验收报告起草（交 CEO 决策）
 
 expected_outputs:
-  - path: docs/acceptance/Acceptance-Report.md
-    kind: markdown
+  - { path: docs/acceptance/Acceptance-Report.md, kind: acceptance-report }
 
 capabilities:
   - acceptance-check
