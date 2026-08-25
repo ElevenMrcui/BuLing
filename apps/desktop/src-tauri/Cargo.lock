@@ -2347,6 +2347,7 @@ name = "opc-desktop"
 version = "0.1.0"
 dependencies = [
  "opc-agent",
+ "opc-project",
  "opc-provider",
  "opc-storage",
  "serde",
@@ -2356,6 +2357,19 @@ dependencies = [
  "tauri-build",
  "thiserror 2.0.20",
  "tokio",
+]
+
+[[package]]
+name = "opc-project"
+version = "0.1.0"
+dependencies = [
+ "opc-agent",
+ "opc-storage",
+ "sqlx",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

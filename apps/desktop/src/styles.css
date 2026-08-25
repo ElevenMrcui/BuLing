@@ -170,6 +170,36 @@ body {
   word-break: break-all;
 }
 
+.project-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.project-form input {
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.project-form button {
+  align-self: flex-start;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+.project-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 footer {
   margin-top: 40px;
   font-size: 12px;

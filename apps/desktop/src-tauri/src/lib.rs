@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use opc_agent::{load_agents_from_dir, seed_agents};
+use opc_project::{create_project, list_projects, CreateProjectInput};
 use opc_provider::ProviderRegistry;
 use opc_storage::AppDb;
 use serde::Serialize;
@@ -50,6 +51,17 @@ pub struct AgentInfo {
     pub sensitivity: String,
     pub provider_priority: Vec<String>,
     pub version: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProjectInfo {
+    pub id: String,
+    pub slug: String,
+    pub display_name: String,
+    pub root_path: String,
+    pub status: String,
+    pub starred: bool,
+    pub last_opened_at: Option<String>,
 }
 
 fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -220,10 +232,79 @@ async fn opc_agents(app: tauri::AppHandle, state: State<'_, OpcState>) -> Result
     Ok(out)
 }
 
+/// 建一个新项目：建目录 + project.sqlite + app.sqlite 注册 + 默认团队 +
+/// 把全部预置 Agent 实例化进团队（见 `opc-project` 文档）。
+#[tauri::command]
+async fn opc_create_project(
+    app: tauri::AppHandle,
+    state: State<'_, OpcState>,
+    slug: String,
+    display_name: String,
+    root_path: String,
+    goal: Option<String>,
+) -> Result<ProjectInfo, String> {
+    let db = get_app_db(&app, &state).await?;
+
+    let agents_root = agents_dir(&app)?;
+    let defs = load_agents_from_dir(&agents_root)
+        .map_err(|e| format!("load_agents_from_dir({}): {e}", agents_root.display()))?;
+
+    let project_mig_dir = migrations_dir_for("project", &app)?;
+    let created = create_project(
+        &db,
+        &project_mig_dir,
+        &defs,
+        CreateProjectInput {
+            slug: &slug,
+            display_name: &display_name,
+            root_path: &PathBuf::from(&root_path),
+            goal: goal.as_deref(),
+            template_id: None,
+        },
+    )
+    .await
+    .map_err(|e| format!("create_project: {e}"))?;
+
+    Ok(ProjectInfo {
+        id: created.project_id,
+        slug,
+        display_name,
+        root_path,
+        status: "active".to_string(),
+        starred: false,
+        last_opened_at: None,
+    })
+}
+
+/// 列出「项目中心」——所有已注册项目，最近打开的排前面。
+#[tauri::command]
+async fn opc_list_projects(app: tauri::AppHandle, state: State<'_, OpcState>) -> Result<Vec<ProjectInfo>, String> {
+    let db = get_app_db(&app, &state).await?;
+    let list = list_projects(&db).await.map_err(|e| format!("list_projects: {e}"))?;
+    Ok(list
+        .into_iter()
+        .map(|p| ProjectInfo {
+            id: p.id,
+            slug: p.slug,
+            display_name: p.display_name,
+            root_path: p.root_path,
+            status: p.status,
+            starred: p.starred,
+            last_opened_at: p.last_opened_at,
+        })
+        .collect())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .manage(OpcState::default())
-        .invoke_handler(tauri::generate_handler![opc_status, opc_providers, opc_agents])
+        .invoke_handler(tauri::generate_handler![
+            opc_status,
+            opc_providers,
+            opc_agents,
+            opc_create_project,
+            opc_list_projects
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

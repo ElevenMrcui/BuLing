@@ -183,6 +183,23 @@ Rust 端用 `keyring` crate 统一封装。
 
 **下一步（P0.5+）**：`opc-project` 把"创建项目 → 实例化 Team/Agent"这条链补上，这样 `producer_agent_id` 才有一个真实来源，而不是测试里手工种的行；`opc-workflow` 把 `run_task` + `write_and_register_artifact` 接进 DAG 节点，让"一个岗位跑完 → 自动落盘 → 触发下游"整条链自动化。
 
+### ADR-005 附注 4 · `runtime/crates/opc-project` 落地（P0.5）—— 补上"实例化"缺口
+
+正是附注 3 里发现的缺口：Artifact 的 `producer_agent_id` 外键指向 `agent_instances(id)`，但在这个 crate 之前，没有任何 runtime 代码会创建这一行——只能靠测试手工种。`opc-project` 补的就是这一步。
+
+四个函数：
+
+- **`create_project()`**：建 `<root>/.opc/` 目录 + 打开（跑迁移）`project.sqlite` → 检查 `slug` 唯一 → 在 `app.sqlite.projects` 注册 → 在 `project.sqlite.project_meta` 写自描述 → 建一个默认 `teams` 行 → **把传入的每个 `AgentDefinition`（通常是 `load_agents_from_dir()` 读到的全部 9 个预置岗位）实例化成一行 `agent_instances`**。全程一个项目对应一次调用，不是分步的多次 IPC 往返，避免中间状态。
+- **`open_project()`**：按 `project_id` 查 `root_path`，刷新 `last_opened_at`，重新打开 `ProjectDb`。
+- **`list_projects()`**：「项目中心」列表源，按 `last_opened_at DESC NULLS LAST, created_at DESC` 排序——最近打开的在最前面。
+- **`find_agent_instance_id()`**：按 `template_agent_id`（如 `"product-manager"`）查这个项目团队里对应的 `agent_instances.id`——`opc-tool` 登记 Artifact 时该传这个 id 当 `producer_agent_id`，不是 `agents/*.yaml` 里的预置 id。
+
+**Tauri 集成**：新增 IPC `opc_create_project` / `opc_list_projects`，桌面壳的"项目中心"卡片现在能真的建项目、列项目（表单直接填本地绝对路径当 `root_path`——P0 阶段还没接原生目录选择器）。
+
+**测试**：8 个集成测试——创建项目校验 app.sqlite/project_meta/团队/全部 Agent 实例化四件事都做到、重复 slug 拒绝、打开已存在/不存在项目、按最近打开排序、按模板 id 查实例、真实加载 9 份 `agents/*.yaml` 全部实例化、以及一条**闭环端到端测试**：`create_project()` 建项目 → `find_agent_instance_id()` 取到真实（非手工种的）`agent_instances.id` → `run_task()` 真跑一次 Agent → `write_and_register_artifact()` 用这个真实 id 登记 Artifact，FK 约束正常放行。workspace 累计 36 个测试全绿。
+
+**下一步（P0.5+）**：`opc-workflow` 把 `create_project` 产出的 `agent_instances` 接进工作流模板（`templates/*.yaml`）实例化出的 DAG 节点，让"选模板 → 建项目 → 团队自动配齐 → 任务自动派发"整条链跑起来。
+
 ---
 
 ## ADR-006 · 依赖沿用：`apps/local-gateway` 与 `packages/cli-registry` 短期保留

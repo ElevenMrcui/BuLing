@@ -133,6 +133,8 @@ Provider Router 按序尝试；第一个 `status=connected` 的命中。方便"�
 
 **Rust 实现**：`runtime/crates/opc-tool::artifact::write_and_register_artifact()`——写文件 + upsert `artifacts` + 追加 `artifact_versions` 在一个 sqlx 事务内完成。**`producer_agent_id` 外键指向 `agent_instances(id)`，不是 `app.sqlite.agents` 的预置 id**——写 Artifact 前，产出它的 Agent 必须已经在这个项目里"实例化"（有一行 `agent_instances`），否则 FK 直接拒绝写入。见 `docs/OPC-架构决策.md` ADR-005 附注 3。
 
+`agent_instances` 行的真实来源是 `runtime/crates/opc-project::create_project()`——建项目时把传入的每个预置 `AgentDefinition` 都实例化进这个项目的默认团队；`find_agent_instance_id()` 按模板 id 查回实例 id，供 `write_and_register_artifact()` 的 `producer_agent_id` 使用。见 `docs/OPC-架构决策.md` ADR-005 附注 4。
+
 ### 3.9 `gates`
 每个 workflow 里的关键卡点。`kind='acceptance-gate'` 由品牌硬约束——`required=true` 永远不可跳过。
 

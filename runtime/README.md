@@ -29,7 +29,7 @@ runtime/
 │   ├── opc-agent/                 ✅ 加载 agents/*.yaml · 播种 app.sqlite · 驱动一次 Provider 执行（6 测试）
 │   │                                见 §Agent 层
 │   ├── opc-tool/                  ✅ 项目内文件写入（沙箱化）+ Artifact 登记（8 测试）见 §Tool 层
-│   ├── opc-project/                Project 创建 / 打开 / 归档 · .opc/ 目录布局
+│   ├── opc-project/                ✅ 创建 / 打开 / 列出 project · 把预置 Agent 实例化进团队（8 测试）见 §Project 层
 │   ├── opc-task/                  Task 生命周期 · TaskRun 调度 · 认领意愿分
 │   ├── opc-workflow/               DAG 引擎 · 节点触发 · Gate 处理 · 循环 / 条件
 │   ├── opc-mcp/                   MCP client
@@ -70,9 +70,22 @@ Tauri App 每次冷启动都会重新播种（`src-tauri/src/lib.rs` 的 `get_ap
 - `fs_tool::write_text_file()` —— 沙箱化写入，对齐 `permission_defaults.file = "project-only"`：词法归一化路径后校验落在项目根以内，拒绝绝对路径 / `..` 穿越
 - `artifact::write_and_register_artifact()` —— 一个事务内完成"写文件 + upsert `artifacts` + 追加 `artifact_versions`"；同一 `file_path` 再次写入 = 新版本，旧版本记录不删（append-only）
 
-**关键约束**：`artifacts.producer_agent_id` 外键指向 `agent_instances(id)`（项目内实例），不是 `app.sqlite.agents` 的预置 id——一个 Agent 要先在某个项目里"实例化"，它的产出才能合法登记。这个环节现在还没有生产路径（`opc-project` 待建），测试里手工种最小 `teams` + `agent_instances` 行来满足外键。
+**关键约束**：`artifacts.producer_agent_id` 外键指向 `agent_instances(id)`（项目内实例），不是 `app.sqlite.agents` 的预置 id——一个 Agent 要先在某个项目里"实例化"，它的产出才能合法登记。生产路径见下方 §Project 层。
 
 职责边界：只做"写 + 登记"这一件事，不做 shell/git/http 等其它 Tool，不做权限 prompt 弹窗确认——那些留给后续切片。
+
+## Project 层（`opc-project`，已落地）
+
+补上 Tool 层暴露的缺口：`create_project()` 建项目时，把传入的每个预置 `AgentDefinition` 都实例化进这个项目的默认团队（写一行 `agent_instances`），`opc-tool` 登记 Artifact 用的 `producer_agent_id` 才有真实、非手工种的来源。
+
+- `create_project()` —— 建 `<root>/.opc/` 目录 + 打开（跑迁移）`project.sqlite` → 检查 slug 唯一 → 注册进 `app.sqlite.projects` → 写 `project.sqlite.project_meta` → 建默认 `teams` 行 → 把全部预置 Agent 实例化进 `agent_instances`
+- `open_project()` —— 按 `project_id` 查 `root_path`，刷新 `last_opened_at`，重新打开 `ProjectDb`
+- `list_projects()` —— 「项目中心」列表源，最近打开的排最前
+- `find_agent_instance_id()` —— 按模板 Agent id（如 `"product-manager"`）查这个项目里对应的 `agent_instances.id`
+
+Tauri IPC `opc_create_project` / `opc_list_projects` 已联通，桌面壳「项目中心」卡片能真的建项目、列项目。
+
+职责边界：只管"项目本体"的创建/打开/列出/团队搭建，不管 Task/Workflow 编排——那是 `opc-workflow` + `opc-task` 的事。
 
 ## 双层 SQLite 布局
 
@@ -104,7 +117,7 @@ Tauri App 每次冷启动都会重新播种（`src-tauri/src/lib.rs` 的 `get_ap
 ## Migration 执行策略
 
 - APP 级：Tauri App 启动时用 sqlx migrate 跑 `migrations/app/*.sql`
-- PROJECT 级：`opc-project` 里 `create_project()` / `open_project()` 时跑 `migrations/project/*.sql`
+- PROJECT 级：`opc-project` 里 `create_project()` / `open_project()` 时跑 `migrations/project/*.sql`（已落地）
 - 版本追踪在各库的 `_migrations` 表；已应用的跳过
 
 ## API Key 安全
@@ -122,8 +135,8 @@ Tauri App 每次冷启动都会重新播种（`src-tauri/src/lib.rs` 的 `get_ap
 1. ✅ `opc-storage` —— 连库 / 跑 migration / AppDb + ProjectDb
 2. ✅ `opc-provider` —— Provider trait + CliProvider(Claude Code) + ApiProvider(11 家厂商) + ProviderRegistry；Tauri IPC `opc_providers` 已联通
 3. ✅ `opc-agent` —— 加载 `agents/*.yaml` seed 到 app.sqlite + select_provider/run_task 闭环；Tauri IPC `opc_agents` 已联通，冷启动自动重新播种
-4. ✅ `opc-tool` —— fs.write（沙箱化）+ Artifact 登记；`run_task` 的产出能真正落盘（Tauri 未联通——还没有"当前打开的项目"这个概念，见下一条）
-5. `opc-project` —— 创建 project 目录 + project.sqlite + 把预置 Agent"实例化"进 `agent_instances`（`opc-tool` 的 `producer_agent_id` 外键需要这个）
+4. ✅ `opc-tool` —— fs.write（沙箱化）+ Artifact 登记；`run_task` 的产出能真正落盘
+5. ✅ `opc-project` —— 创建 project 目录 + project.sqlite + 把预置 Agent"实例化"进 `agent_instances`；Tauri IPC `opc_create_project`/`opc_list_projects` 已联通，桌面壳「项目中心」可用
 6. `opc-workflow` —— 加载 `templates/*.yaml` + DAG 实例化，把 `run_task` + `write_and_register_artifact` 接进节点
 7. `opc-task` —— Task 生命周期 · TaskRun 调度 · 认领意愿分
 8. `opc-privacy` + `opc-audit` —— 每次外发和 tool 调用都写日志

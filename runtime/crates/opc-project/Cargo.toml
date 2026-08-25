@@ -1,0 +1,23 @@
+[package]
+name = "opc-project"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "不令 OPC Project 层 · 创建/打开/列出项目 · 把预置 Agent 实例化进项目团队"
+
+[dependencies]
+opc-storage = { path = "../opc-storage" }
+opc-agent = { path = "../opc-agent" }
+sqlx = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+opc-provider = { path = "../opc-provider" }
+opc-tool = { path = "../opc-tool" }
+serde_json = { workspace = true }
+tempfile = "3"
+wiremock = "0.6"

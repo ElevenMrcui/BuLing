@@ -960,6 +960,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "opc-project"
+version = "0.1.0"
+dependencies = [
+ "opc-agent",
+ "opc-provider",
+ "opc-storage",
+ "opc-tool",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "uuid",
+ "wiremock",
+]
+
+[[package]]
 name = "opc-provider"
 version = "0.1.0"
 dependencies = [

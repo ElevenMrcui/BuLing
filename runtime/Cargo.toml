@@ -5,6 +5,7 @@ members = [
     "crates/opc-provider",
     "crates/opc-agent",
     "crates/opc-tool",
+    "crates/opc-project",
 ]
 
 [workspace.package]
