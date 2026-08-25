@@ -51,9 +51,17 @@
 |---|---|
 | 项目规则 | `CLAUDE.md`（本文）+ `AGENTS.md` |
 | 产品定义 | [`docs/OPC-产品定义.md`](docs/OPC-产品定义.md) |
+| 架构决策（ADR） | [`docs/OPC-架构决策.md`](docs/OPC-架构决策.md) |
+| 数据模型 | [`docs/OPC-数据模型.md`](docs/OPC-数据模型.md) |
 | 本地网关 | [`docs/本地网关.md`](docs/本地网关.md) |
-| 现存代码 | `packages/cli-registry/` · `apps/local-gateway/` |
-| 旧骨架参考 | `legacy/`（不构建，仅供借鉴：AES 密钥加密 · 评审红线状态机 · 原型 UI 语言） |
+| 预置 Agent | `agents/*.yaml` + [`agents/README.md`](agents/README.md) |
+| 工作流模板 | `templates/*.yaml` + [`templates/README.md`](templates/README.md) |
+| SQLite schema | `runtime/migrations/app/*.sql` · `runtime/migrations/project/*.sql` |
+| Runtime 规划 | [`runtime/README.md`](runtime/README.md) |
+| Provider 规划 | [`providers/README.md`](providers/README.md) |
+| 桌面壳规划 | [`apps/desktop/README.md`](apps/desktop/README.md) |
+| 现存可跑代码 | `packages/cli-registry/` · `apps/local-gateway/` |
+| 旧骨架参考 | `legacy/`（不构建 · 见 `legacy/README.md` 禁引规则） |
 
 ---
 

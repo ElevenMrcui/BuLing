@@ -61,17 +61,49 @@
 ├── AGENTS.md                        仓库开发规则
 ├── CLAUDE.md                        分支政策 · design-first · 硬约束
 ├── docs/
-│   ├── OPC-产品定义.md              ★ 产品全景 · 数据模型 · Runtime 架构 · MVP 清单
+│   ├── OPC-产品定义.md              ★ 产品全景 · 一分钟组阁 · Runtime 架构 · MVP 清单
+│   ├── OPC-架构决策.md              ADR：Tauri 2 / sqlx / 双层 SQLite / Keychain / 三种 Provider
+│   ├── OPC-数据模型.md              双层 SQLite schema 全景 · 实体关系 · 关键字段决策
 │   └── 本地网关.md                  local-gateway 协议 / 安全底线
 │
+├── runtime/                         ★ Rust · Tauri 后端 · 核心执行引擎（P0 逐步落地）
+│   ├── README.md                    workspace 布局 + P0 落地顺序
+│   ├── migrations/                  SQLite migration（双层）
+│   │   ├── README.md
+│   │   ├── app/0001_init.sql        APP 库：user/settings/providers/agents/projects/logs
+│   │   └── project/0001_init.sql    PROJECT 库：teams/tasks/artifacts/reviews/workflows/memory+FTS5
+│   └── crates/                      多 crate（P0 后续填充）
+│
+├── providers/                       AI 能力源适配器（CLI / API / Local）
+│   └── README.md                    Provider trait · 每家 adapter 目录规范
+│
+├── agents/                          9 位预置 AI 岗位模板
+│   ├── README.md
+│   ├── product-manager.yaml         产品经理
+│   ├── tech-lead.yaml               技术负责人
+│   ├── architect.yaml               架构师
+│   ├── project-manager.yaml         项目经理
+│   ├── designer.yaml                设计师
+│   ├── frontend.yaml                前端
+│   ├── backend.yaml                 后端
+│   ├── qa.yaml                      测试
+│   └── acceptance.yaml              验收（敏感度 high · 默认本地 Provider）
+│
+├── templates/                       工作流模板
+│   ├── README.md
+│   └── standard-software-delivery.yaml   标准软件交付流（Goal → PRD → 架构 → 开发 → 测试 → 验收）
+│
 ├── apps/
-│   └── local-gateway/               本机守护进程 · 只监听 127.0.0.1 · Token 鉴权
-│                                    P0 之后会升级为 OPC Runtime 的 CLI 执行层
+│   ├── desktop/                     Tauri 2 桌面壳（占位 · P0 后段落地）
+│   │   └── README.md                目录规划 + 前端页面清单
+│   └── local-gateway/               本机守护进程 · 127.0.0.1 + Token · 短期沿用
+│                                    P0 后期融入 runtime/crates/opc-provider
 │
 ├── packages/
-│   └── cli-registry/                AI 厂商 CLI 签名注册表（Claude Code / Codex / Gemini …）
+│   └── cli-registry/                AI 厂商 CLI 签名注册表（10 家）
 │
 └── legacy/                          旧「不令 · 企业级协作平台」骨架 · 归档参考 · 不构建
+    ├── README.md                    禁引规则 + 可借鉴资产清单
     ├── apps/api/                    NestJS + Prisma（AES 密钥加密 · 评审红线状态机可借鉴）
     ├── apps/web/                    Next.js 14
     ├── infra/                       docker-compose (Postgres + Redis)
