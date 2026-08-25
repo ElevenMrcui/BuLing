@@ -200,6 +200,31 @@ Rust 端用 `keyring` crate 统一封装。
 
 **下一步（P0.5+）**：`opc-workflow` 把 `create_project` 产出的 `agent_instances` 接进工作流模板（`templates/*.yaml`）实例化出的 DAG 节点，让"选模板 → 建项目 → 团队自动配齐 → 任务自动派发"整条链跑起来。
 
+### ADR-005 附注 5 · `runtime/crates/opc-workflow` 落地（P0.5）—— DAG 加载 + 实例化 + 驱动 + 评审红线唯一入口
+
+把附注 4 留的缺口接上：`templates/*.yaml` 怎么变成一次真的能跑的项目交付链。四件事：
+
+- **加载**（`template.rs`）：解析 `templates/*.yaml` 成 `WorkflowTemplate`。**不是全字段忠实解析**——`on_approve`/`on_complete`（含条件分支）/`on_true`/`on_false` 这些字段这一版不认识（serde 默认忽略未知字段，不报错但也不保留）。`parallel` 分组节点在加载时**就地拍平**成独立节点，组级 `depends_on` 并入每个子节点。
+- **依赖推导踩到的一个真实坑**：`templates/README.md` 写明"`inputs`：前置节点的 Artifact 引用……只声明依赖，Runtime 自动注入"，但模板文件里不少 `agent` 节点（`regression` / `acceptance_prep`）压根没写 `depends_on`，真正的前置关系只体现在 `inputs` 里。第一版加载器只认 `depends_on` + `human` 节点的 `subject` 兜底，跑真实模板测试时"应该只有入口节点 ready"却测出 3 个——`regression`/`acceptance_prep` 被误判为无依赖直接可跑。修法是从 `inputs`（取第一个 `.` 之前的 token）里再补一遍依赖，`condition` 节点同理从 `condition` 表达式里补，跟显式 `depends_on`/`subject` 做并集，不是二选一。
+- **实例化**（`instantiate.rs`）：建 `workflows` 行（`dag` 存整份模板的 JSON 快照）→ 逐节点建 `tasks` 行——`assignment=template` 的 `agent` 节点顺带调 `opc_project::find_agent_instance_id()` 把 `assigned_agent_id` 解析好 → 逐 Gate 建 `gates` 行。
+- **驱动**（`runner.rs`）：`ready_node_keys()` 是个纯函数（DAG + 已完成节点集合 → 依赖满足的节点 id），`list_ready_agent_tasks()` 在此基础上过滤出 `kind=agent · assignment=template · assigned_agent_id 已解析` 的可执行任务；`run_task_node()` 真的调 `opc_agent::run_task()` 拿文本，再对节点声明的**每一个** output 调 `opc_tool::write_and_register_artifact()` 落盘登记，写 `task_runs`，标记 `tasks.status='completed'`。
+- **人工 Gate**（`gate.rs`）：`approve_gate()` / `reject_gate()` 是评审红线的**唯一入口**，`runner` 模块自己永远不会把 `kind=human` 的节点标记完成——这不是"没做完"，是红线硬约束本身要求的行为。`reject_gate()` 会把节点上 `on_reject.goto` 指向的任务重置回 `pending`，让它们重新出现在可执行集合里，操作化"打回重做"。**已知局限**：只重置 `goto` 直接点名的节点，不做下游级联失效。
+
+**Gate 的两个 key 空间要分清**：`gates` 表按模板顶层 `gates:` 声明的 Gate id（如 `requirement-gate`）建行；`tasks` 表按节点 id（如 `prd_review`）建行；两者靠节点的 `gate:` 字段关联。`approve_gate`/`reject_gate` 都吃 Gate id，内部从 DAG 快照里找到对应的评审任务节点——这是实现时踩的一个坑：最初直接拿任务节点 id 去查 `gates` 表，查不到。
+
+**这一版没做的事**（诚实标注，不是遗漏）：
+- `human` 节点不自动推进——评审红线要求，不是缺口
+- `condition` 节点（如 `qa_gate` 的表达式判断）没有求值器，会一直停在 `pending`
+- `manual` / `auto-claim` 节点不解析 `assigned_agent_id`，不会被驱动（`frontend_dev`/`backend_dev`/`bug_fix` 这几个节点目前没有生产路径）
+- 不把上游节点的 Artifact 内容注入 Prompt，只给一句提到节点名和期望产出的通用指令——"读上游 PRD 写架构"这种真正的上下文传递是下一版的事
+- `reject_gate` 打回不做下游级联失效
+
+**Tauri 集成**：`opc_create_project` 加了 `template_id` 参数，传了就顺带 `instantiate_workflow`，`active_workflow_id` 带回前端；新增 `opc_workflow_tasks` / `opc_workflow_ready_tasks` / `opc_workflow_run_task` / `opc_workflow_gates` / `opc_workflow_approve_gate` / `opc_workflow_reject_gate` 六个 IPC。桌面壳新增「工作流中心」卡片：任务节点列表 + 可执行节点的"跑这个节点"按钮 + Gate 列表 + "通过"/"打回"按钮（`approve_gate`/`reject_gate` 只能由用户在界面上点，Runtime 不会自己调）。项目库 sqlx pool 现在按 `project_id` 缓存在 `OpcState.open_projects`（`Mutex<HashMap>`），避免每个工作流 IPC 调用都重新开一个 pool。
+
+**测试**：7 个集成测试——真实模板加载（拍平校验 + 依赖推导校验）、纯函数 `ready_node_keys` 的两种依赖满足状态、实例化校验 tasks/gates 数量与 `assigned_agent_id` 解析对/不对、`list_ready_agent_tasks` 只返回入口节点、端到端闭环（`prd` 真跑 wiremock Provider → 3 个 output 落盘 → `prd_review` 不被自动推进 → `approve_gate` 之后 `tech_selection` 才进入可执行集合）、打回重置。workspace 累计 43 个测试全绿。
+
+**下一步（P0.5+）**：`opc-task` 把 `manual`/`auto-claim` 节点的指派/认领逻辑接上；`qa_gate` 这类 `condition` 节点需要一个表达式求值器；上游 Artifact 内容注入 Prompt 是让 Agent 产出真正有意义的下一件大事。
+
 ---
 
 ## ADR-006 · 依赖沿用：`apps/local-gateway` 与 `packages/cli-registry` 短期保留

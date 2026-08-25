@@ -80,7 +80,8 @@
 │       │                            见 providers/README.md
 │       ├── opc-agent/               ✅ 加载 agents/*.yaml · 播种 app.sqlite · 驱动一次 Provider 执行（6 测试）
 │       ├── opc-tool/                ✅ 项目内文件写入（沙箱化）+ Artifact 登记（8 测试）
-│       └── opc-project/             ✅ 创建/打开/列出项目 · 把预置 Agent 实例化进团队（8 测试）
+│       ├── opc-project/             ✅ 创建/打开/列出项目 · 把预置 Agent 实例化进团队（8 测试）
+│       └── opc-workflow/            ✅ 加载模板 · 实例化 DAG · 驱动 Agent 节点 · 人工 Gate（7 测试）
 │
 ├── providers/                       AI 能力源 manifest（CLI / API / Local · 11 家）
 │   ├── README.md                    manifest 格式 · Provider trait · 加厂商步骤
@@ -112,8 +113,10 @@
 │   ├── desktop/                     ✅ Tauri 2 桌面壳（骨架已落地 · 可 cargo build）
 │   │   ├── package.json             Vite + React + @tauri-apps/api
 │   │   ├── src/                     React 前端（项目中心 + 存储层状态 + 预置岗位 + Provider 发现列表）
-│   │   └── src-tauri/               Rust 后端（薄壳 · 引用 opc-storage + opc-provider + opc-agent + opc-project）
+│   │   └── src-tauri/               Rust 后端（薄壳 · 引用 opc-storage + opc-provider + opc-agent + opc-project + opc-workflow）
 │   │                                IPC: opc_status · opc_providers · opc_agents · opc_create_project · opc_list_projects
+│   │                                     · opc_workflow_tasks · opc_workflow_ready_tasks · opc_workflow_run_task
+│   │                                     · opc_workflow_gates · opc_workflow_approve_gate · opc_workflow_reject_gate
 │   └── local-gateway/               本机守护进程 · 127.0.0.1 + Token · 短期沿用
 │                                    P0 后期融入 runtime/crates/opc-provider
 │
@@ -141,11 +144,12 @@ pnpm install
 
 # —— Runtime（Rust · SQLite 存储） ——
 make runtime-check        # cargo check
-make runtime-test         # 36 个测试：opc-storage 3 个（app/project db + FTS5）
+make runtime-test         # 43 个测试：opc-storage 3 个（app/project db + FTS5）
                           #           + opc-provider 11 个（CLI adapter 单测 + wire format 集成测试）
                           #           + opc-agent 6 个（YAML 加载 + 播种幂等性 + Provider fallback）
                           #           + opc-tool 8 个（沙箱路径校验 + Artifact 版本化 + 端到端胶水）
                           #           + opc-project 8 个（创建/打开/列出项目 + Agent 实例化 + 端到端胶水）
+                          #           + opc-workflow 7 个（模板加载 + DAG 实例化 + 驱动执行 + Gate 通过/打回）
 
 # —— 桌面 App（Tauri 2） ——
 make desktop-check        # 无窗口 · 前端 typecheck+build + Rust cargo check
@@ -203,33 +207,35 @@ make desktop-dev   # 需要图形环境（macOS / Linux X11·Wayland）；无图
 2. **项目名**：如 `健康管理 App`
 3. **本地目录**：一个本地绝对路径，如 `/Users/you/opc-projects/health-app`（目录不存在会自动创建）
 4. **目标**（可选）：一句话描述，如 `做一个健康管理 App`
-5. 点「创建项目」
+5. 勾选「同时启动『标准软件交付流』工作流」（默认勾选）
+6. 点「创建项目」
 
 创建成功后可以在这个目录下看到：
 ```
 health-app/
 └── .opc/
     └── project.sqlite     ← 项目级 SQLite：已经有一条「默认团队」+ 9 位 Agent 实例
+                              + 一条正在跑的工作流（16 个任务节点 + 4 个 Gate）
 ```
-列表会立刻刷新，显示这个新项目（按最近打开排序）。
+列表会立刻刷新，显示这个新项目（按最近打开排序）；如果勾了工作流，页面上会多出一块「工作流中心」卡片。
 
-### 4. 看团队 & 引擎组阁结果
+### 4. 跑工作流第一步 · 体验评审红线
 
-- **团队中心 · 预置 AI 岗位** 卡片：列出全部 9 位预置岗位（产品经理 / 技术负责人 / 架构师 / 项目经理 / 设计师 / 前端 / 后端 / 测试 / 验收），每位岗位标注 `sensitivity` 和 `provider_priority`（尝试引擎的优先顺序）
-- **模型中心 · Provider 发现** 卡片：列出全部 11 家已知引擎（CLI / API / 本地），绿点表示当前机器上真的可用（装了对应 CLI，或环境变量/Keychain 里有对应 Key，或本地模型服务在跑）
+「工作流中心」卡片分两块：
 
-这两块合起来就是"一分钟组阁"承诺的当前实现：**根据你机器上实际有什么能力，决定每个岗位实际会用哪个引擎干活**。
+- **任务节点**：16 个节点（PRD → 技术方案 → 架构 → 排期/设计 → 前后端开发 → 测试 → 验收），当前能跑的节点（依赖已满足 · 岗位已就绪）旁边会出现「跑这个节点」按钮。项目刚建好时只有 `prd` 是可跑的——点一下，产品经理岗位会真的调一次 AI 引擎，产出 PRD/验收标准/用户故事三份文档，直接写进项目目录并在任务列表里标记为 `completed`。
+- **评审红线（人工 Gate）**：`prd` 跑完后，下一个节点 `prd_review` 是人工评审节点——**不会自动放行**，「评审红线」卡片里会出现「通过」/「打回」两个按钮。点「通过」，`tech_selection`（技术负责人）才会出现在任务节点里变成可跑；点「打回」，`prd` 会被重置回待办，重新出现「跑这个节点」按钮。
+
+这就是"评审红线永不自动化"这条硬约束在界面上的样子：AI 团队能一路把活干到评审节点前，但过 Gate 这一步永远要你自己点。
+
+**当前止步于此**：前后端开发这两个节点是"能力池认领"（`auto-claim`）、Bug 修复是"人工指派"（`manual`），这一版还没接执行路径，工作流会停在 `development_gate` 之前——这不是 bug，是诚实的进度边界，见 [`runtime/README.md` § P0 落地顺序](runtime/README.md#p0-落地顺序)。
 
 ### 5. 命令行验证（不想开图形界面时）
 
 ```bash
-make runtime-test   # 跑全部 36 个 Rust 集成/单元测试，验证 Storage/Provider/Agent/Tool/Project 五层逻辑
+make runtime-test   # 跑全部 43 个 Rust 集成/单元测试，验证 Storage/Provider/Agent/Tool/Project/Workflow 六层逻辑
 make desktop-check  # 无窗口验证前端 + Rust 后端都能编译
 ```
-
-### 接下来会怎样
-
-`opc-workflow` 落地后，创建项目时会同时选一个工作流模板（如"标准软件交付流"），团队会按模板自动把 PRD → 架构 → 开发 → 测试 → 验收 的任务派发下去，Agent 产出会自动写进「产出中心」并触发下一环节，遇到评审红线卡点时弹窗等人工确认。这条链还在建，进度见 [`runtime/README.md` § P0 落地顺序](runtime/README.md#p0-落地顺序)。
 
 ---
 

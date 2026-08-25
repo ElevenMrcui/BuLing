@@ -30,8 +30,8 @@ runtime/
 │   │                                见 §Agent 层
 │   ├── opc-tool/                  ✅ 项目内文件写入（沙箱化）+ Artifact 登记（8 测试）见 §Tool 层
 │   ├── opc-project/                ✅ 创建 / 打开 / 列出 project · 把预置 Agent 实例化进团队（8 测试）见 §Project 层
-│   ├── opc-task/                  Task 生命周期 · TaskRun 调度 · 认领意愿分
-│   ├── opc-workflow/               DAG 引擎 · 节点触发 · Gate 处理 · 循环 / 条件
+│   ├── opc-workflow/               ✅ 加载 templates/*.yaml · 实例化 DAG · 驱动 Agent 节点 · 人工 Gate（7 测试）见 §Workflow 层
+│   ├── opc-task/                  Task 生命周期 · TaskRun 调度 · 认领意愿分（manual/auto-claim 节点的执行路径）
 │   ├── opc-mcp/                   MCP client
 │   ├── opc-privacy/                隐私哨兵：外发拦截 / 数据脱敏
 │   └── opc-audit/                 ExecutionLog append-only 写入
@@ -87,6 +87,19 @@ Tauri IPC `opc_create_project` / `opc_list_projects` 已联通，桌面壳「项
 
 职责边界：只管"项目本体"的创建/打开/列出/团队搭建，不管 Task/Workflow 编排——那是 `opc-workflow` + `opc-task` 的事。
 
+## Workflow 层（`opc-workflow`，已落地）
+
+把 `templates/*.yaml` 变成一次真的能跑的项目交付链。四件事：
+
+- `template::load_templates_from_dir()` —— 解析模板成 `WorkflowTemplate`；`parallel` 分组节点在加载时就地拍平成独立节点，组级 `depends_on` 并入每个子节点；节点依赖不只看显式 `depends_on`，还会从 `inputs`（`templates/README.md` 里"只声明依赖，Runtime 自动注入"那句话字面意思）和 `human` 节点的 `subject` 推导补全
+- `instantiate::instantiate_workflow()` —— 建 `workflows` 行（`dag` 存整份模板 JSON 快照）+ 逐节点建 `tasks` 行（`assignment=template` 的 Agent 节点顺带用 `opc_project::find_agent_instance_id()` 解析出 `assigned_agent_id`）+ 逐 Gate 建 `gates` 行
+- `runner::list_ready_agent_tasks()` / `run_task_node()` —— 只驱动 `kind=agent · assignment=template` 且依赖已满足的节点：调 `opc_agent::run_task()` 拿文本 → 对节点声明的每个 output 调 `opc_tool::write_and_register_artifact()` 落盘登记 → 写 `task_runs` → 标记完成
+- `gate::approve_gate()` / `reject_gate()` —— **评审红线的唯一入口**，`runner` 永远不会自动把 `kind=human` 节点标完成。`reject_gate` 把 `on_reject.goto` 指向的节点重置回 `pending`，操作化"打回重做"
+
+**这一版没做的事**（诚实标注）：`human`/`condition` 节点不自动推进（前者是红线要求，后者是没有表达式求值器）；`manual`/`auto-claim` 节点不解析执行；不把上游 Artifact 内容注入 Prompt，只给通用指令；打回不做下游级联失效。见 `docs/OPC-架构决策.md` ADR-005 附注 5。
+
+Tauri IPC `opc_create_project`（加了 `template_id` 参数）+ `opc_workflow_tasks` / `opc_workflow_ready_tasks` / `opc_workflow_run_task` / `opc_workflow_gates` / `opc_workflow_approve_gate` / `opc_workflow_reject_gate` 已联通，桌面壳新增「工作流中心」卡片。
+
 ## 双层 SQLite 布局
 
 **为什么两层？** 为了让"项目"是**独立可迁移单元**——把整个项目文件夹拷贝到别的机器还能用；不需要跨项目的公共设置。
@@ -137,6 +150,6 @@ Tauri IPC `opc_create_project` / `opc_list_projects` 已联通，桌面壳「项
 3. ✅ `opc-agent` —— 加载 `agents/*.yaml` seed 到 app.sqlite + select_provider/run_task 闭环；Tauri IPC `opc_agents` 已联通，冷启动自动重新播种
 4. ✅ `opc-tool` —— fs.write（沙箱化）+ Artifact 登记；`run_task` 的产出能真正落盘
 5. ✅ `opc-project` —— 创建 project 目录 + project.sqlite + 把预置 Agent"实例化"进 `agent_instances`；Tauri IPC `opc_create_project`/`opc_list_projects` 已联通，桌面壳「项目中心」可用
-6. `opc-workflow` —— 加载 `templates/*.yaml` + DAG 实例化，把 `run_task` + `write_and_register_artifact` 接进节点
-7. `opc-task` —— Task 生命周期 · TaskRun 调度 · 认领意愿分
+6. ✅ `opc-workflow` —— 加载 `templates/*.yaml` + DAG 实例化，把 `run_task` + `write_and_register_artifact` 接进节点，`approve_gate`/`reject_gate` 是评审红线唯一入口；Tauri IPC 六个工作流命令已联通，桌面壳「工作流中心」可用
+7. `opc-task` —— `manual`/`auto-claim` 节点的指派/认领逻辑 · TaskRun 调度 · 认领意愿分
 8. `opc-privacy` + `opc-audit` —— 每次外发和 tool 调用都写日志

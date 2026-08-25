@@ -1028,6 +1028,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "opc-workflow"
+version = "0.1.0"
+dependencies = [
+ "opc-agent",
+ "opc-project",
+ "opc-provider",
+ "opc-storage",
+ "opc-tool",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sqlx",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "uuid",
+ "wiremock",
+]
+
+[[package]]
 name = "parking"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

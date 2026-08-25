@@ -119,7 +119,9 @@ Provider Router 按序尝试；第一个 `status=connected` 的命中。方便"�
 ### 3.7 `task_runs` = 每次执行尝试
 同一 task 可有多个 task_run：失败重试 / 用户重新触发 / 打回后 rerun。旧 run 状态置 `superseded`，不删。
 
-`report_artifact_id` 指向本次强制产出的 `Report.md`——**没产 Report 就不算完成**（Runtime 侧的硬校验）。
+`report_artifact_id` 指向本次强制产出的 `Report.md`——**没产 Report 就不算完成**（Runtime 侧的硬校验，P0 尚未接，见下）。
+
+**Rust 实现**：`runtime/crates/opc-workflow`——`instantiate_workflow()` 把 `templates/*.yaml` 解析出的 `WorkflowTemplate`（`dag` 字段存整份 JSON 快照）落成一行 `workflows` + 逐节点一行 `tasks` + 逐 Gate 一行 `gates`；`run_task_node()` 驱动 `kind=agent · assignment=template` 的节点真正执行并落盘 Artifact。`kind=human` 节点（评审红线）永远不会被自动推进，只能通过 `approve_gate()`/`reject_gate()` 显式人工触发。`manual`/`auto-claim` 节点、`condition` 节点表达式求值、Report.md 强制产出这一版都还没接，见 `docs/OPC-架构决策.md` ADR-005 附注 5。
 
 ### 3.8 `artifacts` + `artifact_versions` + `artifact_refs`
 三张表拼出"追溯图"：
@@ -138,8 +140,12 @@ Provider Router 按序尝试；第一个 `status=connected` 的命中。方便"�
 ### 3.9 `gates`
 每个 workflow 里的关键卡点。`kind='acceptance-gate'` 由品牌硬约束——`required=true` 永远不可跳过。
 
+`gates.node_key` 和 `tasks.node_key` 是**两个不同的 key 空间**：前者是模板顶层 `gates:` 声明的 Gate id（如 `requirement-gate`），后者是节点 id（如 `prd_review`）——两者靠 `human` 节点的 `gate:` 字段关联。`opc_workflow::approve_gate()`/`reject_gate()` 都吃 Gate id，内部从 `workflows.dag` 快照里找到对应的评审任务节点再去更新 `tasks`。
+
 ### 3.10 `reviews` = append-only
 一次评审动作 = 一行记录。历史所有决策都留着；某次"批准"后又发现问题，写一条新的"changes-requested"覆盖，前一条不删。
+
+**Rust 实现**：`opc_workflow::approve_gate()` 写 `decision='approved'`，`reject_gate()` 写 `decision='changes-requested'` 并把模板 `on_reject.goto` 指向的节点重置回 `pending`（不做下游级联失效，P0 已知局限）。
 
 ### 3.11 `memory_entries` + `memory_fts`
 - 主表存 KV

@@ -2,14 +2,17 @@
 
 Tauri 2 桌面壳 · React + TypeScript 前端 · Rust 后端（复用 `runtime/`）。
 
-**当前状态：骨架已落地并跑通 E2E。** `cargo build`（`apps/desktop/src-tauri`）+ `pnpm --filter @buling/desktop build` 均通过；已联通五个 IPC 命令：
+**当前状态：骨架已落地并跑通 E2E。** `cargo build`（`apps/desktop/src-tauri`）+ `pnpm --filter @buling/desktop build` 均通过；已联通十一个 IPC 命令：
 - `opc_status` —— APP 库路径 / 迁移版本 / 已播种的预置岗位数
 - `opc_providers` —— 扫描 `providers/*/manifest.toml`，返回每个 Provider 的可用性（只发现不执行；单个 Provider 构建失败不拖垮整个列表）
 - `opc_agents` —— 列出 `app.sqlite.agents` 里的全部岗位；每次冷启动会先用 `agents/*.yaml` 重新播种（幂等，不覆盖用户 fork 过的行）
-- `opc_create_project` —— 建项目（目录 + project.sqlite + app.sqlite 注册 + 默认团队 + 全部预置 Agent 实例化）
+- `opc_create_project` —— 建项目（目录 + project.sqlite + app.sqlite 注册 + 默认团队 + 全部预置 Agent 实例化）；传 `template_id` 会顺带实例化对应工作流
 - `opc_list_projects` —— 列出「项目中心」，最近打开的排最前
+- `opc_workflow_tasks` / `opc_workflow_ready_tasks` —— 列出一个工作流的全部/当前可执行任务节点
+- `opc_workflow_run_task` —— 真的跑一次可执行的 Agent 节点（选 Provider → 执行 → 落盘登记 Artifact）
+- `opc_workflow_gates` / `opc_workflow_approve_gate` / `opc_workflow_reject_gate` —— 评审红线：Gate 列表 + 人工通过/打回（永远由用户在界面上点，Runtime 不会自己调）
 
-前端首页展示项目中心 + 这三块状态，作为"Runtime + Storage + Provider + Agent + Project 五层打通"的最小可视证据。
+前端首页展示项目中心 + 工作流中心 + 三块状态，作为"Runtime + Storage + Provider + Agent + Project + Workflow 六层打通"的最小可视证据。
 
 **尚未做**：没有真实图形环境跑一次窗口级冒烟（这个沙箱没有显示服务器）——目前的验证止于 `cargo build` 编译通过 + 各 runtime crate 自身的单测/集成测试覆盖了 IPC 命令背后调用的逻辑。真机上打开窗口验证仍是待办。
 

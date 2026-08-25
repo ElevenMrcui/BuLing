@@ -37,6 +37,20 @@ interface ProjectInfo {
   status: string;
   starred: boolean;
   last_opened_at: string | null;
+  active_workflow_id: string | null;
+}
+
+interface TaskInfo {
+  node_key: string;
+  kind: string;
+  role: string | null;
+  assignment_mode: string;
+  status: string;
+}
+
+interface GateInfo {
+  id: string;
+  status: string;
 }
 
 export default function App() {
@@ -52,13 +66,71 @@ export default function App() {
   const [newDisplayName, setNewDisplayName] = useState("");
   const [newRootPath, setNewRootPath] = useState("");
   const [newGoal, setNewGoal] = useState("");
+  const [withWorkflow, setWithWorkflow] = useState(true);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // 「工作流中心」跟踪的是最近一次创建/选中的项目 + 它的活跃工作流。
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<TaskInfo[] | null>(null);
+  const [readyNodeKeys, setReadyNodeKeys] = useState<Set<string>>(new Set());
+  const [gates, setGates] = useState<GateInfo[] | null>(null);
+  const [workflowError, setWorkflowError] = useState<string | null>(null);
+  const [busyNodeKey, setBusyNodeKey] = useState<string | null>(null);
 
   const refreshProjects = () => {
     invoke<ProjectInfo[]>("opc_list_projects")
       .then(setProjects)
       .catch((e) => setProjectsError(String(e)));
+  };
+
+  const refreshWorkflow = (projectId: string, workflowId: string) => {
+    invoke<TaskInfo[]>("opc_workflow_tasks", { projectId, workflowId })
+      .then(setTasks)
+      .catch((e) => setWorkflowError(String(e)));
+    invoke<TaskInfo[]>("opc_workflow_ready_tasks", { projectId, workflowId })
+      .then((ready) => setReadyNodeKeys(new Set(ready.map((t) => t.node_key))))
+      .catch((e) => setWorkflowError(String(e)));
+    invoke<GateInfo[]>("opc_workflow_gates", { projectId, workflowId })
+      .then(setGates)
+      .catch((e) => setWorkflowError(String(e)));
+  };
+
+  useEffect(() => {
+    if (activeProjectId && activeWorkflowId) {
+      refreshWorkflow(activeProjectId, activeWorkflowId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId, activeWorkflowId]);
+
+  const runNode = async (nodeKey: string) => {
+    if (!activeProjectId || !activeWorkflowId) return;
+    setBusyNodeKey(nodeKey);
+    setWorkflowError(null);
+    try {
+      await invoke("opc_workflow_run_task", { projectId: activeProjectId, workflowId: activeWorkflowId, nodeKey });
+      refreshWorkflow(activeProjectId, activeWorkflowId);
+    } catch (err) {
+      setWorkflowError(String(err));
+    } finally {
+      setBusyNodeKey(null);
+    }
+  };
+
+  const decideGate = async (gateId: string, approve: boolean) => {
+    if (!activeProjectId || !activeWorkflowId) return;
+    setBusyNodeKey(gateId);
+    setWorkflowError(null);
+    try {
+      const cmd = approve ? "opc_workflow_approve_gate" : "opc_workflow_reject_gate";
+      await invoke(cmd, { projectId: activeProjectId, workflowId: activeWorkflowId, gateId, comment: null });
+      refreshWorkflow(activeProjectId, activeWorkflowId);
+    } catch (err) {
+      setWorkflowError(String(err));
+    } finally {
+      setBusyNodeKey(null);
+    }
   };
 
   useEffect(() => {
@@ -79,17 +151,22 @@ export default function App() {
     setCreating(true);
     setCreateError(null);
     try {
-      await invoke("opc_create_project", {
+      const created = await invoke<ProjectInfo>("opc_create_project", {
         slug: newSlug,
         displayName: newDisplayName,
         rootPath: newRootPath,
         goal: newGoal || null,
+        templateId: withWorkflow ? "standard-software-delivery" : null,
       });
       setNewSlug("");
       setNewDisplayName("");
       setNewRootPath("");
       setNewGoal("");
       refreshProjects();
+      if (created.active_workflow_id) {
+        setActiveProjectId(created.id);
+        setActiveWorkflowId(created.active_workflow_id);
+      }
     } catch (err) {
       setCreateError(String(err));
     } finally {
@@ -134,6 +211,10 @@ export default function App() {
             required
           />
           <input placeholder="目标（可选）" value={newGoal} onChange={(e) => setNewGoal(e.target.value)} />
+          <label className="checkbox-row">
+            <input type="checkbox" checked={withWorkflow} onChange={(e) => setWithWorkflow(e.target.checked)} />
+            同时启动「标准软件交付流」工作流
+          </label>
           <button type="submit" disabled={creating}>
             {creating ? "创建中…" : "创建项目"}
           </button>
@@ -163,6 +244,59 @@ export default function App() {
           <p className="hint">正在加载项目列表…</p>
         )}
       </section>
+
+      {activeProjectId && activeWorkflowId ? (
+        <section className="status card" style={{ marginTop: 16 }}>
+          <h2>工作流中心 · 标准软件交付流</h2>
+          {workflowError ? <p className="err">{workflowError}</p> : null}
+
+          <h3 className="subhead">评审红线（人工 Gate）</h3>
+          {gates ? (
+            <ul className="provider-list">
+              {gates.map((g) => (
+                <li key={g.id} className="provider-row">
+                  <span className={`dot ${g.status === "passed" ? "dot-ok" : "dot-off"}`} />
+                  <span className="provider-name">{g.id}</span>
+                  <span className="provider-meta">{g.status}</span>
+                  {g.status === "pending" ? (
+                    <span className="gate-actions">
+                      <button type="button" disabled={busyNodeKey === g.id} onClick={() => decideGate(g.id, true)}>
+                        通过
+                      </button>
+                      <button type="button" disabled={busyNodeKey === g.id} onClick={() => decideGate(g.id, false)}>
+                        打回
+                      </button>
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="hint">加载中…</p>
+          )}
+
+          <h3 className="subhead">任务节点</h3>
+          {tasks ? (
+            <ul className="provider-list">
+              {tasks.map((t) => (
+                <li key={t.node_key} className="provider-row">
+                  <span className="provider-name">{t.node_key}</span>
+                  <span className="provider-meta">
+                    {t.kind} · {t.role ?? "—"} · {t.assignment_mode} · {t.status}
+                  </span>
+                  {readyNodeKeys.has(t.node_key) ? (
+                    <button type="button" disabled={busyNodeKey === t.node_key} onClick={() => runNode(t.node_key)}>
+                      {busyNodeKey === t.node_key ? "执行中…" : "跑这个节点"}
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="hint">加载中…</p>
+          )}
+        </section>
+      ) : null}
 
       <section className="status card" style={{ marginTop: 16 }}>
         <h2>存储层状态</h2>
@@ -234,7 +368,7 @@ export default function App() {
       </section>
 
       <footer>
-        <span>P0.5 · Runtime + Storage + Provider + Agent + Project 层已就绪 · 工作流/任务待续</span>
+        <span>P0.5 · Runtime + Storage + Provider + Agent + Project + Workflow 层已就绪 · Task 认领/自动派单待续</span>
       </footer>
     </main>
   );
