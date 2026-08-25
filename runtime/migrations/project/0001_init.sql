@@ -350,12 +350,6 @@ CREATE INDEX proj_exec_log_task_idx ON execution_logs (task_id);
 CREATE INDEX proj_exec_log_agent_idx ON execution_logs (agent_id);
 
 -- ----------------------------------------------------------------------------
--- 迁移追踪
+-- 注：迁移追踪表 `_migrations` 由 runtime opc-storage crate 自动管理，
+--     不在业务迁移里创建。
 -- ----------------------------------------------------------------------------
-CREATE TABLE _migrations (
-    version     INTEGER PRIMARY KEY,
-    name        TEXT NOT NULL,
-    applied_at  TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-INSERT INTO _migrations (version, name) VALUES (1, '0001_init');

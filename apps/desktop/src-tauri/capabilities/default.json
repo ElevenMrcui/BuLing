@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "不令 OPC 默认权限：允许主窗口调用所有 opc_* IPC 命令。",
+  "windows": ["main"],
+  "permissions": [
+    "core:default"
+  ]
+}

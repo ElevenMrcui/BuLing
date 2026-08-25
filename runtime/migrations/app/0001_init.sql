@@ -187,19 +187,10 @@ CREATE INDEX exec_log_ts_idx ON execution_logs (ts DESC);
 CREATE INDEX exec_log_project_idx ON execution_logs (project_id);
 CREATE INDEX exec_log_actor_idx ON execution_logs (actor);
 
--- ----------------------------------------------------------------------------
--- 迁移追踪
--- ----------------------------------------------------------------------------
-CREATE TABLE _migrations (
-    version     INTEGER PRIMARY KEY,
-    name        TEXT NOT NULL,
-    applied_at  TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-INSERT INTO _migrations (version, name) VALUES (1, '0001_init');
-
 -- ============================================================================
 -- 内置种子数据（app 首次启动时）
+-- 注：迁移追踪表 `_migrations` 由 runtime opc-storage crate 自动管理，
+--     不在业务迁移里创建。
 -- ============================================================================
 
 -- 单用户占位（首次启动会被 onboarding 覆盖）

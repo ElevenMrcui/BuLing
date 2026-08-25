@@ -66,13 +66,16 @@
 │   ├── OPC-数据模型.md              双层 SQLite schema 全景 · 实体关系 · 关键字段决策
 │   └── 本地网关.md                  local-gateway 协议 / 安全底线
 │
-├── runtime/                         ★ Rust · Tauri 后端 · 核心执行引擎（P0 逐步落地）
+├── runtime/                         ★ Rust · Tauri 后端 · 核心执行引擎
+│   ├── Cargo.toml                   workspace 根
 │   ├── README.md                    workspace 布局 + P0 落地顺序
 │   ├── migrations/                  SQLite migration（双层）
 │   │   ├── README.md
 │   │   ├── app/0001_init.sql        APP 库：user/settings/providers/agents/projects/logs
 │   │   └── project/0001_init.sql    PROJECT 库：teams/tasks/artifacts/reviews/workflows/memory+FTS5
-│   └── crates/                      多 crate（P0 后续填充）
+│   └── crates/
+│       └── opc-storage/             ✅ 已落地：sqlx + SQLite · migrator · AppDb + ProjectDb
+│                                    3 个集成测试通过（含 FTS5）
 │
 ├── providers/                       AI 能力源适配器（CLI / API / Local）
 │   └── README.md                    Provider trait · 每家 adapter 目录规范
@@ -98,8 +101,10 @@
 │       ├── product/ · technical/ · project/ · design/ · qa/ · acceptance/
 │
 ├── apps/
-│   ├── desktop/                     Tauri 2 桌面壳（占位 · P0 后段落地）
-│   │   └── README.md                目录规划 + 前端页面清单
+│   ├── desktop/                     ✅ Tauri 2 桌面壳（骨架已落地 · 可 cargo check）
+│   │   ├── package.json             Vite + React + @tauri-apps/api
+│   │   ├── src/                     React 前端（初始化欢迎页 · 调 opc_status IPC）
+│   │   └── src-tauri/               Rust 后端（薄壳 · 引用 opc-storage）
 │   └── local-gateway/               本机守护进程 · 127.0.0.1 + Token · 短期沿用
 │                                    P0 后期融入 runtime/crates/opc-provider
 │
@@ -119,16 +124,30 @@
 
 ## 快速开始
 
-**当前阶段仓库处在 pivot 后重启期**——旧「企业级协作平台」骨架已归档到 `legacy/`；OPC 新架构（Tauri 2 + React + Rust Runtime + SQLite）正在筹备 P0。
-
-现存能跑的只有 `apps/local-gateway`（本机 AI CLI 扫描），它会作为 OPC Runtime 的 CLI 执行层继续沿用：
+P0 已跑通：**Rust runtime + Tauri 桌面壳**能编译，SQLite 存储层集成测试全绿。
 
 ```bash
+# 一次性装依赖
 pnpm install
-pnpm --filter @buling/local-gateway start   # 127.0.0.1:17817
+
+# —— Runtime（Rust · SQLite 存储） ——
+make runtime-check        # cargo check
+make runtime-test         # 3 个集成测试：app db · project db + FTS5 · 幂等
+
+# —— 桌面 App（Tauri 2） ——
+make desktop-check        # 无窗口 · 前端 typecheck+build + Rust cargo check
+make desktop-dev          # 起真实窗口（需要图形环境 · macOS/Linux+X11/Wayland）
+make desktop-build        # 打包生产版
+
+# —— 本地 AI CLI 扫描 daemon（沿用旧仓库形态，未来融入 Runtime） ——
+make gateway              # http://127.0.0.1:17817
 ```
 
-详见 [`docs/本地网关.md`](docs/本地网关.md)。
+详见：
+- [`docs/OPC-产品定义.md`](docs/OPC-产品定义.md) —— 产品全景
+- [`docs/OPC-架构决策.md`](docs/OPC-架构决策.md) —— ADR（Tauri / sqlx / 双层 SQLite / Keychain / Provider 抽象）
+- [`docs/OPC-数据模型.md`](docs/OPC-数据模型.md) —— 双层 SQLite schema 全景
+- [`docs/本地网关.md`](docs/本地网关.md) —— local-gateway 协议
 
 ---
 

@@ -20,10 +20,26 @@ pnpm-lock.yaml.bak
 .env.local
 .env.*.local
 
-# Prisma
-apps/api/prisma/migrations/dev.db
-apps/api/prisma/dev.db*
+# Prisma（旧骨架 · 已归档到 legacy/）
+legacy/apps/api/prisma/migrations/dev.db
+legacy/apps/api/prisma/dev.db*
 
 # Playwright / test outputs
 apps/*/playwright-report/
 apps/*/test-results/
+
+# Rust
+target/
+runtime/target/
+apps/desktop/src-tauri/target/
+Cargo.lock.bak
+**/*.rs.bk
+
+# Tauri 生成物
+apps/desktop/src-tauri/gen/
+
+# 本地 SQLite 副本
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm

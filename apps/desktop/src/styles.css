@@ -1,0 +1,137 @@
+:root {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --ink: #1d1d1f;
+  --ink-secondary: #494952;
+  --ink-tertiary: #8e8e93;
+  --border: #e5e5ea;
+  --accent: #007aff;
+  --accent-soft: #e5f0ff;
+  --danger: #ff3b30;
+  --radius-l: 16px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0a0d;
+    --surface: #1c1c22;
+    --ink: #f5f5f7;
+    --ink-secondary: #c4c4c8;
+    --ink-tertiary: #8e8e93;
+    --border: #2c2c34;
+    --accent: #0a84ff;
+    --accent-soft: #003366;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC",
+    system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 40px;
+}
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 24px;
+}
+.brand-text b {
+  font-size: 17px;
+  display: block;
+}
+.brand-text span {
+  font-size: 12px;
+  color: var(--ink-tertiary);
+}
+
+.hero {
+  margin: 48px 0 40px;
+}
+.hero h1 {
+  font-size: 32px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+.hero .sub {
+  font-size: 15px;
+  color: var(--ink-secondary);
+  margin: 0;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+}
+.status h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-tertiary);
+  margin: 0 0 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.status dl {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px 16px;
+  margin: 0;
+  font-size: 14px;
+}
+.status dt {
+  color: var(--ink-tertiary);
+}
+.status dd {
+  margin: 0;
+}
+.mono {
+  font-family: "SF Mono", ui-monospace, "Menlo", monospace;
+  font-size: 12.5px;
+  color: var(--ink-secondary);
+  word-break: break-all;
+}
+.hint {
+  color: var(--ink-tertiary);
+  font-size: 13px;
+  margin: 0;
+}
+.err {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 0;
+}
+
+footer {
+  margin-top: 40px;
+  font-size: 12px;
+  color: var(--ink-tertiary);
+  text-align: center;
+}

@@ -1,0 +1,28 @@
+[package]
+name = "opc-desktop"
+version = "0.1.0"
+edition = "2021"
+description = "不令 OPC 桌面应用（Tauri 2 · Rust 后端）"
+
+# 这个 crate 主要作为 lib + Tauri 二进制入口
+[lib]
+name = "opc_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+thiserror = "2"
+
+# 引用 runtime workspace 的 opc-storage crate（相对路径）
+opc-storage = { path = "../../../runtime/crates/opc-storage" }
+
+# tauri 2 dev / release features
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
