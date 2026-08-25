@@ -72,13 +72,18 @@
 │   ├── migrations/                  SQLite migration（双层）
 │   │   ├── README.md
 │   │   ├── app/0001_init.sql        APP 库：user/settings/providers/agents/projects/logs
+│   │   ├── app/0002_provider_wire_format.sql   加 providers.wire_format 列
 │   │   └── project/0001_init.sql    PROJECT 库：teams/tasks/artifacts/reviews/workflows/memory+FTS5
 │   └── crates/
-│       └── opc-storage/             ✅ 已落地：sqlx + SQLite · migrator · AppDb + ProjectDb
-│                                    3 个集成测试通过（含 FTS5）
+│       ├── opc-storage/             ✅ sqlx + SQLite · migrator · AppDb + ProjectDb（3 测试）
+│       └── opc-provider/            ✅ Provider trait · CLI/API/Local 抽象 · 11 家厂商（11 测试）
+│                                    见 providers/README.md
 │
-├── providers/                       AI 能力源适配器（CLI / API / Local）
-│   └── README.md                    Provider trait · 每家 adapter 目录规范
+├── providers/                       AI 能力源 manifest（CLI / API / Local · 11 家）
+│   ├── README.md                    manifest 格式 · Provider trait · 加厂商步骤
+│   ├── claude-code/ · codex/ · gemini/ · aider/         （CLI）
+│   ├── anthropic/ · openai/ · glm/ · qwen/ · deepseek/  （API）
+│   └── ollama/ · lm-studio/                             （Local）
 │
 ├── agents/                          9 位预置 AI 岗位模板
 │   ├── README.md
@@ -101,10 +106,11 @@
 │       ├── product/ · technical/ · project/ · design/ · qa/ · acceptance/
 │
 ├── apps/
-│   ├── desktop/                     ✅ Tauri 2 桌面壳（骨架已落地 · 可 cargo check）
+│   ├── desktop/                     ✅ Tauri 2 桌面壳（骨架已落地 · 可 cargo build）
 │   │   ├── package.json             Vite + React + @tauri-apps/api
-│   │   ├── src/                     React 前端（初始化欢迎页 · 调 opc_status IPC）
-│   │   └── src-tauri/               Rust 后端（薄壳 · 引用 opc-storage）
+│   │   ├── src/                     React 前端（存储层状态 + Provider 发现列表）
+│   │   └── src-tauri/               Rust 后端（薄壳 · 引用 opc-storage + opc-provider）
+│   │                                IPC: opc_status · opc_providers
 │   └── local-gateway/               本机守护进程 · 127.0.0.1 + Token · 短期沿用
 │                                    P0 后期融入 runtime/crates/opc-provider
 │
@@ -132,7 +138,8 @@ pnpm install
 
 # —— Runtime（Rust · SQLite 存储） ——
 make runtime-check        # cargo check
-make runtime-test         # 3 个集成测试：app db · project db + FTS5 · 幂等
+make runtime-test         # 14 个测试：opc-storage 3 个（app/project db + FTS5）
+                          #           + opc-provider 11 个（CLI adapter 单测 + wire format 集成测试）
 
 # —— 桌面 App（Tauri 2） ——
 make desktop-check        # 无窗口 · 前端 typecheck+build + Rust cargo check

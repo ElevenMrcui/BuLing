@@ -45,6 +45,16 @@ async fn app_db_opens_and_migrates() {
         assert!(set.contains(t), "app db missing table {t}, have: {set:?}");
     }
 
+    // 0002_provider_wire_format 加的列应该存在
+    let cols: Vec<(i64, String)> = sqlx::query_as("SELECT cid, name FROM pragma_table_info('providers')")
+        .fetch_all(&db.pool)
+        .await
+        .unwrap();
+    assert!(
+        cols.iter().any(|(_, name)| name == "wire_format"),
+        "providers table missing wire_format column, have: {cols:?}"
+    );
+
     // 幂等：再跑一次不应报错，也不该重复插入 _migrations
     let db2 = AppDb::open(&db_path, migrations_root().join("app"))
         .await
@@ -129,13 +139,18 @@ async fn migration_is_idempotent() {
             .unwrap();
         drop(db);
     }
-    // 三次打开后 _migrations 只应有 1 条 version=1 记录
+    // 三次打开后 _migrations 的行数应等于 migrations/app/ 下的文件数
+    // （每份迁移只应用一次，不会因重复 open 而重复插入）。
     let db = AppDb::open(&db_path, migrations_root().join("app"))
         .await
         .unwrap();
+    let expected = std::fs::read_dir(migrations_root().join("app"))
+        .unwrap()
+        .filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().ends_with(".sql"))
+        .count() as i64;
     let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM _migrations")
         .fetch_one(&db.pool)
         .await
         .unwrap();
-    assert_eq!(count, 1);
+    assert_eq!(count, expected);
 }

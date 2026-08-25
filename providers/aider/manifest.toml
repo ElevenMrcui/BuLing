@@ -1,0 +1,15 @@
+# Aider —— 开源终端 Coding Agent，支持 Git 集成与多模型后端。
+#
+# 状态：manifest 已声明，Rust adapter 尚未实现（cli_adapter 留空）。
+# Aider 交互式为主，非交互 (`--message`) 输出形态与其余 CLI 差异较大，
+# 加 adapter 前必须先用真实 `aider --help` 核实参数格式，不臆造。
+
+id = "aider"
+display_name = "Aider"
+vendor = "aider.chat"
+kind = "cli"
+
+cli_binary = "aider"
+
+allowed_sensitivity = ["low", "medium"]
+privacy_note = "走用户本机配置的模型后端；数据流向取决于用户自己给 Aider 配置的 API Key。"

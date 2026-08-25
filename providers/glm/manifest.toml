@@ -1,0 +1,16 @@
+# 智谱 GLM —— 官方文档声明 OpenAI Chat Completions 兼容模式。
+
+id = "glm-api"
+display_name = "智谱 GLM"
+vendor = "Zhipu"
+kind = "api"
+wire_format = "openai-compatible"
+
+default_base_url = "https://open.bigmodel.cn/api/paas/v4"
+credential_service = "glm"
+
+# 型号列表不在此处臆造，交由用户在「模型中心」手填。
+models = []
+
+allowed_sensitivity = ["low", "medium"]
+privacy_note = "用户明示配置 API Key 后直连智谱 API；每次调用即视为外发。"

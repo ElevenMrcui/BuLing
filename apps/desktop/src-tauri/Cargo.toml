@@ -19,8 +19,9 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 thiserror = "2"
 
-# 引用 runtime workspace 的 opc-storage crate（相对路径）
+# 引用 runtime workspace 的 crate（相对路径）
 opc-storage = { path = "../../../runtime/crates/opc-storage" }
+opc-provider = { path = "../../../runtime/crates/opc-provider" }
 
 # tauri 2 dev / release features
 [features]

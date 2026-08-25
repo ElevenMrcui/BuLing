@@ -2,7 +2,7 @@
 
 本文是 OPC 数据模型的**唯一权威源**。**任何字段级信息以本文与 `runtime/migrations/*.sql` 为准**——冲突时以 SQL 为准（可编译执行的才是真理）。
 
-- APP 库 schema：`runtime/migrations/app/0001_init.sql`
+- APP 库 schema：`runtime/migrations/app/0001_init.sql` + `0002_provider_wire_format.sql`
 - PROJECT 库 schema：`runtime/migrations/project/0001_init.sql`
 
 设计前置读物：[`OPC-架构决策.md § ADR-003`](OPC-架构决策.md)（为什么双层库）· [`OPC-架构决策.md § ADR-002`](OPC-架构决策.md)（为什么 SQLite + sqlx）· [`OPC-架构决策.md § ADR-004`](OPC-架构决策.md)（为什么 Key 走 Keychain）。
@@ -88,6 +88,9 @@
 
 ### 3.2 `providers.allowed_sensitivity` = 敏感度白名单
 `low` / `low,medium` / `low,medium,high` 三档。**Agent.sensitivity=high 的岗位（如"验收"）只能绑到 `allowed_sensitivity` 包含 `high` 的 Provider**——一般只有本地模型 Provider（Ollama / LM Studio）满足。这是隐私哨兵的硬拦。
+
+### 3.2.1 `providers.wire_format`（migration `0002_provider_wire_format.sql`）
+`kind='api'/'local'` 的行标注走哪种 HTTP 线协议：`anthropic-messages`（Anthropic 官方）或 `openai-compatible`（OpenAI / GLM / Qwen / DeepSeek / Ollama / LM Studio 共用的公共子集）。`kind='cli'` 的行留 `NULL`（走 `cli_binary` + Rust 侧对应的 `CliAdapter`，不经 HTTP）。与 `runtime/crates/opc-provider/src/manifest.rs` 的 `ProviderManifest.wire_format` 字段一一对应，见 `docs/OPC-架构决策.md` ADR-005 附注。
 
 ### 3.3 `agents.provider_priority` = 优先级列表 · 不是单值
 ```json

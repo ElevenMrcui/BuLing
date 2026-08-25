@@ -117,6 +117,43 @@ Rust 端用 `keyring` crate 统一封装。
 - CLI Provider 要处理每家 CLI 的输出格式差异（Claude Code 有 `--output-format json`，Codex 不同，Gemini 又不同）
 - 每加一家 Provider 就要写一个 adapter；`providers/` 目录规划见其 README
 
+### ADR-005 附注 · `runtime/crates/opc-provider` 落地（P0）
+
+首个可编译版本已落地，用了三个经典模式各解决一个变化点（避免"每加一家厂商就要改 Runtime 调用方代码"）：
+
+| 变化点 | 模式 | 落地 |
+|---|---|---|
+| Runtime 不该认具体是哪家厂商 | **依赖倒置** | `Provider` trait（`execute` / `status` / `id` / `kind`），调用方只认这个接口 |
+| API Provider 之间的差异只在"线协议" | **Strategy** | `WireFormat` trait，两个实现：`AnthropicMessagesWire`（Anthropic 官方 `/v1/messages`）· `OpenAiCompatibleWire`（OpenAI / GLM / Qwen / DeepSeek / Ollama / LM Studio 共用的 `/chat/completions` 公共子集）；`ApiProvider` 是持有 `Box<dyn WireFormat>` 的 context，不关心具体协议 |
+| CLI Provider 之间的差异是"参数怎么拼 / 输出怎么解析" | **Adapter** | `CliAdapter` trait，当前只实现 `ClaudeCodeAdapter`（参数经真实 `claude --help` 核实）；`CliProvider` 是持有 `Box<dyn CliAdapter>` 的 context，只管进程管理（spawn / 超时 / stdout 采集） |
+| 新增一家走已知协议的厂商不该碰 Rust 代码 | **Factory + 声明式 manifest** | `providers/*/manifest.toml` 描述厂商元数据（id / kind / wire_format / cli_adapter / base_url / credential_service / allowed_sensitivity），`ProviderRegistry::build()` 按 `kind` 路由到 `CliProvider::from_manifest` 或 `ApiProvider::from_manifest`；加一家 OpenAI 兼容协议的厂商只需要加一份 TOML |
+
+**职责边界（刻意收窄）**：Provider 层只做**一次文本补全**——system + 历史进，文本 + usage 出。工具调用循环、Artifact 落盘是 Runtime（`opc-tool` + `opc-workflow`，P0.5+）的职责，不塞进这一层，避免 Provider 变成"什么都干"的上帝对象。
+
+**已接的厂商**（11 份 manifest，见 `providers/README.md`）：
+
+| Provider id | kind | wire_format / cli_adapter | 状态 |
+|---|---|---|---|
+| claude-code | cli | claude-code | ✅ 参数已用 `claude --help` 核实；响应体字段未做真实调用核实（见下方"验证状态"） |
+| codex-cli / gemini-cli / aider | cli | 未实现 | manifest 占位，`CliProvider::from_manifest` 对未知 adapter 显式报错（不猜参数） |
+| anthropic-api | api | anthropic-messages | ✅ 字段已用 claude-api skill 权威参考核实 |
+| openai-api / glm-api / qwen-api / deepseek-api | api | openai-compatible | ✅ 走各厂商官方文档声明的 OpenAI 兼容公共子集，不加任何单一厂商私有扩展字段 |
+| ollama-local / lm-studio-local | local | openai-compatible | ✅ 同上；`allowed_sensitivity` 含 `high`（本地推理，数据不出机） |
+
+**验证状态（诚实标注，不臆造）**：
+- Claude Code CLI 的**命令行参数**（`-p`、`--output-format json`、`--model`、`--system-prompt`）已用 `claude --help` 的真实输出核实。
+- Claude Code CLI **`--output-format json` 的响应体字段**（`result` / `is_error` / `usage.*`）基于官方文档记录的行为，本仓库开发过程中未做一次真实调用核实（用户当次会话明确拒绝了活体探测）。`parse_output` 按此假设实现，解析失败时返回携带原始 stdout 前 500 字的 `Error::Parse`，不会静默吞掉数据——上线前必须补一次真实调用核对。
+- Anthropic Messages API 的请求/响应字段已用 `claude-api` skill 的权威参考（本仓库内置的 Anthropic 官方文档缓存）逐字段核实。
+- OpenAI 兼容协议只实现了公共子集（`model` / `messages[].{role,content}` / `max_tokens` → `choices[0].message.content` / `usage.{prompt_tokens,completion_tokens}`），未对 GLM/Qwen/DeepSeek 做真实联调，因为这四家均在官方文档中声明兼容该协议，不属于臆造。
+
+**API Key 解析顺序**（`credential.rs`，对齐 ADR-004）：环境变量 `OPC_KEY_<SERVICE>`（CI / 开发期兜底）→ OS Keychain `opc.provider.<service>/default`。`keyring` crate 本身不带任何后端，按平台在 `Cargo.toml` 用 `[target.'cfg(...)'.dependencies]` 显式开启 `apple-native` / `windows-native` / `sync-secret-service`。
+
+**测试**：14 个测试全绿——`opc-storage` 3 个（migration + FTS5）+ `opc-provider` 11 个（5 个 CLI adapter 纯函数单测 + 6 个 wiremock 集成测试，覆盖两种 wire format 的成功/错误路径 + manifest 加载 + 敏感度约束校验 + 凭证缺失场景）。API 测试**不发起任何真实网络请求**（wiremock 起本机 mock server）；CLI 测试**不 spawn 真实二进制**（只测 build_args / parse_output 纯函数）。
+
+**数据模型联动**：`app.sqlite.providers` 新增 `wire_format` 列（migration `0002_provider_wire_format.sql`），CLI 类型的行留 NULL。
+
+**下一步（P0.5+）**：Codex / Gemini CLI / Aider 的 adapter（先跑一次真实 `--help` 核实参数）；Tauri IPC 已加 `opc_providers` 命令跑通"扫描全部 Provider 状态"的最小闭环；模型中心 UI 的"添加 Provider / 测试连接 / 保存 Key"表单待建。
+
 ---
 
 ## ADR-006 · 依赖沿用：`apps/local-gateway` 与 `packages/cli-registry` 短期保留

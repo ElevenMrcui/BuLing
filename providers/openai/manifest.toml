@@ -1,0 +1,18 @@
+# OpenAI 官方 API —— Chat Completions（OpenAI 自家协议，也是「OpenAI 兼容」
+# wire format 的原始定义者）。Base URL 为 OpenAI 官方公开文档记录的默认值。
+
+id = "openai-api"
+display_name = "OpenAI"
+vendor = "OpenAI"
+kind = "api"
+wire_format = "openai-compatible"
+
+default_base_url = "https://api.openai.com/v1"
+credential_service = "openai"
+
+# 型号列表不在此处臆造——OpenAI 型号迭代频繁，交由用户在「模型中心」手填，
+# 或 P1 接入 Model Discovery（GET /v1/models）自动拉取。
+models = []
+
+allowed_sensitivity = ["low", "medium"]
+privacy_note = "用户明示配置 API Key 后直连 OpenAI API；每次调用即视为外发。"

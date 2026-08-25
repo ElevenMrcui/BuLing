@@ -2,7 +2,11 @@
 
 Tauri 2 桌面壳 · React + TypeScript 前端 · Rust 后端（复用 `runtime/`）。
 
-**当前状态：目录占位。** Tauri 脚手架 + React 项目在 P0 后半段落地——先要 `runtime/crates/opc-storage` + `opc-provider` 至少一半跑通，桌面壳才有东西可显示。
+**当前状态：骨架已落地并跑通 E2E。** `cargo build`（`apps/desktop/src-tauri`）+ `pnpm --filter @buling/desktop build` 均通过；已联通两个 IPC 命令：
+- `opc_status` —— APP 库路径 / 迁移版本
+- `opc_providers` —— 扫描 `providers/*/manifest.toml`，返回每个 Provider 的可用性（只发现不执行）
+
+前端首页展示这两块状态，作为"Runtime + Storage + Provider 三层打通"的最小可视证据。
 
 ## 规划的目录
 

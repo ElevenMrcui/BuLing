@@ -12,31 +12,44 @@
 
 ```
 runtime/
-├── Cargo.toml                    Workspace 根（P0 后创建）
+├── Cargo.toml                    ✅ Workspace 根
 │
 ├── migrations/
 │   ├── README.md
 │   ├── app/                      APP 级 SQLite migration（跨项目 · 全局）
-│   │   └── 0001_init.sql         ✅ P0 完成
+│   │   ├── 0001_init.sql         ✅ P0 完成
+│   │   └── 0002_provider_wire_format.sql   ✅ 给 providers 加 wire_format 列
 │   └── project/                  PROJECT 级 SQLite migration（每项目一份）
 │       └── 0001_init.sql         ✅ P0 完成
 │
-├── crates/                       各模块 crate（P0 逐个补）
-│   ├── opc-storage/              SQLite + sqlx · migration runner · repos
-│   ├── opc-agent/                Agent 定义加载 / 实例化 / 状态
-│   ├── opc-project/              Project 创建 / 打开 / 归档 · .opc/ 目录布局
-│   ├── opc-task/                 Task 生命周期 · TaskRun 调度 · 认领意愿分
-│   ├── opc-workflow/             DAG 引擎 · 节点触发 · Gate 处理 · 循环 / 条件
-│   ├── opc-provider/             Provider Router · CLI / API / Local 抽象
-│   ├── opc-tool/                 Tool 层（fs / shell / git / http / db）+ 权限系统
-│   ├── opc-mcp/                  MCP client
-│   ├── opc-privacy/              隐私哨兵：外发拦截 / 数据脱敏
-│   ├── opc-audit/                ExecutionLog append-only 写入
-│   └── opc-runtime/              总装：把上面所有 crate 编成一个 lib，供 Tauri 调
+├── crates/
+│   ├── opc-storage/               ✅ SQLite + sqlx · migration runner · AppDb/ProjectDb（3 测试）
+│   ├── opc-provider/               ✅ Provider trait · CLI/API/Local 抽象 · 11 家厂商 manifest（11 测试）
+│   │                                见 §Provider 层 与 providers/README.md
+│   ├── opc-agent/                 Agent 定义加载 / 实例化 / 状态
+│   ├── opc-project/                Project 创建 / 打开 / 归档 · .opc/ 目录布局
+│   ├── opc-task/                  Task 生命周期 · TaskRun 调度 · 认领意愿分
+│   ├── opc-workflow/               DAG 引擎 · 节点触发 · Gate 处理 · 循环 / 条件
+│   ├── opc-tool/                  Tool 层（fs / shell / git / http / db）+ 权限系统
+│   ├── opc-mcp/                   MCP client
+│   ├── opc-privacy/                隐私哨兵：外发拦截 / 数据脱敏
+│   ├── opc-audit/                 ExecutionLog append-only 写入
+│   └── opc-runtime/                总装：把上面所有 crate 编成一个 lib，供 Tauri 调
 │
 └── seeds/                        首次启动播种数据
     └── agents.rs                 从 agents/*.yaml 读并写入 app.sqlite
 ```
+
+## Provider 层（`opc-provider`，已落地）
+
+统一 CLI / API / Local 三种 AI 能力来源，见 `docs/OPC-架构决策.md` ADR-005 附注与 `providers/README.md`。核心设计：
+
+- **依赖倒置**：`Provider` trait 是 Runtime 唯一认的接口
+- **Strategy**：`WireFormat` trait 封装 API 线协议差异（`anthropic-messages` / `openai-compatible`）
+- **Adapter**：`CliAdapter` trait 封装每家 CLI 的参数拼装 / 输出解析差异
+- **Factory**：`ProviderRegistry` 从 `providers/*/manifest.toml` 声明式构建实例，加厂商不改 Rust 代码
+
+职责边界：只做一次文本补全（system + 历史进，文本 + usage 出），不做工具调用循环——那是 `opc-tool` + `opc-workflow` 的事。
 
 ## 双层 SQLite 布局
 
@@ -81,10 +94,10 @@ runtime/
 
 `providers.api_credential_ref` 只存 keychain 里那个 item 的 id（比如 `opc.provider.openai.default`），实际密钥每次用时从 keychain 现取。
 
-## P0 落地顺序（等桌面壳就位后）
+## P0 落地顺序
 
-1. `opc-storage` —— 连库 / 跑 migration / 基础 repos
-2. `opc-provider` —— 迁入现有 `apps/local-gateway` 的 CLI 探测逻辑
+1. ✅ `opc-storage` —— 连库 / 跑 migration / AppDb + ProjectDb
+2. ✅ `opc-provider` —— Provider trait + CliProvider(Claude Code) + ApiProvider(11 家厂商) + ProviderRegistry；Tauri IPC `opc_providers` 已联通
 3. `opc-agent` —— 加载 `agents/*.yaml` seed 到 app.sqlite
 4. `opc-project` —— 创建 project 目录 + project.sqlite
 5. `opc-workflow` —— 加载 `templates/*.yaml` + DAG 实例化

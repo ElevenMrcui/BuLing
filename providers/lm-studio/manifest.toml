@@ -1,0 +1,16 @@
+# LM Studio —— 本机开源模型 GUI，提供 OpenAI 兼容协议服务。
+# 数据不出机，是唯一默认满足 sensitivity=high（如"验收"岗位）的 Provider 之一。
+
+id = "lm-studio-local"
+display_name = "LM Studio（本机）"
+vendor = "LM Studio"
+kind = "local"
+wire_format = "openai-compatible"
+
+default_base_url = "http://localhost:1234/v1"
+# 本地 runtime 通常不校验 key，不设 credential_service。
+
+models = []
+
+allowed_sensitivity = ["low", "medium", "high"]
+privacy_note = "完全本机推理，数据不出机。"

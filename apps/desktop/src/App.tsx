@@ -7,14 +7,29 @@ interface OpcStatus {
   ready: boolean;
 }
 
+interface ProviderInfo {
+  id: string;
+  display_name: string;
+  vendor: string;
+  kind: "cli" | "api" | "local";
+  wire_format: string | null;
+  available: boolean;
+  detail: string | null;
+}
+
 export default function App() {
   const [status, setStatus] = useState<OpcStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [providers, setProviders] = useState<ProviderInfo[] | null>(null);
+  const [providersError, setProvidersError] = useState<string | null>(null);
 
   useEffect(() => {
     invoke<OpcStatus>("opc_status")
       .then(setStatus)
-      .catch((e) => setError(String(e)));
+      .catch((e) => setStatusError(String(e)));
+    invoke<ProviderInfo[]>("opc_providers")
+      .then(setProviders)
+      .catch((e) => setProvidersError(String(e)));
   }, []);
 
   return (
@@ -43,15 +58,38 @@ export default function App() {
             <dt>就绪</dt>
             <dd>{status.ready ? "✓" : "—"}</dd>
           </dl>
-        ) : error ? (
-          <p className="err">加载失败：{error}</p>
+        ) : statusError ? (
+          <p className="err">加载失败：{statusError}</p>
         ) : (
           <p className="hint">正在初始化 APP 库…</p>
         )}
       </section>
 
+      <section className="status card" style={{ marginTop: 16 }}>
+        <h2>模型中心 · Provider 发现</h2>
+        {providers ? (
+          <ul className="provider-list">
+            {providers.map((p) => (
+              <li key={p.id} className="provider-row">
+                <span className={`dot ${p.available ? "dot-ok" : "dot-off"}`} />
+                <span className="provider-name">{p.display_name}</span>
+                <span className="provider-meta">
+                  {p.vendor} · {p.kind}
+                  {p.wire_format ? ` · ${p.wire_format}` : ""}
+                </span>
+                {p.detail ? <span className="provider-detail">{p.detail}</span> : null}
+              </li>
+            ))}
+          </ul>
+        ) : providersError ? (
+          <p className="err">加载失败：{providersError}</p>
+        ) : (
+          <p className="hint">正在扫描 Provider…</p>
+        )}
+      </section>
+
       <footer>
-        <span>P0 · Runtime + Storage 已就绪 · 项目/团队/任务/工作流待续</span>
+        <span>P0 · Runtime + Storage + Provider 层已就绪 · 团队/任务/工作流待续</span>
       </footer>
     </main>
   );
