@@ -1,0 +1,16 @@
+# 阿里通义千问 —— DashScope 官方文档声明的 OpenAI 兼容模式 endpoint。
+
+id = "qwen-api"
+display_name = "通义千问"
+vendor = "Alibaba"
+kind = "api"
+wire_format = "openai-compatible"
+
+default_base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+credential_service = "qwen"
+
+# 型号列表不在此处臆造，交由用户在「模型中心」手填。
+models = []
+
+allowed_sensitivity = ["low", "medium"]
+privacy_note = "用户明示配置 API Key 后直连 DashScope API；每次调用即视为外发。"

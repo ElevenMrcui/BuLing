@@ -1,0 +1,19 @@
+{
+  "name": "buling-opc",
+  "private": true,
+  "version": "0.2.0",
+  "description": "不令 OPC · One Person Company · Local-First 的私人 AI 公司桌面应用",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel -r --filter='./apps/*' dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "gateway": "pnpm --filter @buling/local-gateway start"
+  }
+}

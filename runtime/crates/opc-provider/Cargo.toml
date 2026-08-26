@@ -1,0 +1,36 @@
+[package]
+name = "opc-provider"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "不令 OPC Provider 层 · CLI / API / Local 统一抽象 · Provider Router"
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+keyring = { workspace = true }
+
+# `keyring` 本身不带任何后端（见 crate 的 [features]），必须按平台显式开启
+# 一个，否则 Entry::new/get_password 在运行时报 "no keyring backend"。
+# 对齐 docs/OPC-架构决策.md ADR-004：macOS Keychain / Windows Credential
+# Manager / Linux Secret Service。
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { workspace = true, features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { workspace = true, features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { workspace = true, features = ["sync-secret-service"] }
+
+[dev-dependencies]
+wiremock = "0.6"
+tempfile = "3"
+tokio = { workspace = true, features = ["full", "test-util"] }

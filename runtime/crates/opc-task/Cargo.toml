@@ -1,0 +1,24 @@
+[package]
+name = "opc-task"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "不令 OPC Task 层 · manual/auto-claim 节点的指派与认领意愿分 · 驱动已指派节点执行"
+
+[dependencies]
+opc-storage = { path = "../opc-storage" }
+opc-agent = { path = "../opc-agent" }
+opc-provider = { path = "../opc-provider" }
+opc-workflow = { path = "../opc-workflow" }
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+opc-project = { path = "../opc-project" }
+tempfile = "3"
+wiremock = "0.6"

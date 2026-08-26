@@ -1,0 +1,27 @@
+[package]
+name = "opc-workflow"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "不令 OPC Workflow 层 · 加载 templates/*.yaml · 实例化 DAG · 驱动 Agent 节点执行 · 人工 Gate 打回/通过"
+
+[dependencies]
+opc-storage = { path = "../opc-storage" }
+opc-provider = { path = "../opc-provider" }
+opc-agent = { path = "../opc-agent" }
+opc-tool = { path = "../opc-tool" }
+opc-project = { path = "../opc-project" }
+opc-audit = { path = "../opc-audit" }
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+wiremock = "0.6"

@@ -1,0 +1,198 @@
+id: standard-software-delivery
+name: 标准软件交付流
+description: |
+  从"一句目标"到"可交付产品"的完整软件交付工作流。
+  覆盖需求 → 技术 → 项目管理 → 设计 → 开发 → 测试 → 验收 全链路。
+  健康 App / 工具类 App / 内部系统 / SaaS 原型都可以套用。
+version: 1
+
+# 该模板要求的岗位
+required_roles:
+  - product-manager
+  - tech-lead
+  - architect
+  - project-manager
+  - designer
+  - frontend
+  - backend
+  - qa
+  - acceptance
+
+# 工作流 DAG
+# assignment 三选一：template（模板默认岗位）/ manual（用户手动指派）/ auto-claim（能力池广播认领）
+nodes:
+  # ─── Phase 1 · 需求 ────────────────────────────────────────────
+  - id: prd
+    kind: agent
+    role: product-manager
+    assignment: template
+    inputs: [__goal__]                            # __goal__ = 用户最初输入
+    outputs:
+      - { kind: prd,       path: docs/product/PRD.md }
+      - { kind: acceptance, path: docs/product/Acceptance-Criteria.md }
+      - { kind: user-stories, path: docs/product/User-Stories.md }
+
+  - id: prd_review
+    kind: human
+    reviewer: user
+    gate: requirement-gate
+    subject: prd
+    on_reject: { goto: prd }                      # 打回重做
+
+  # ─── Phase 2 · 技术 ────────────────────────────────────────────
+  - id: tech_selection
+    kind: agent
+    role: tech-lead
+    assignment: template
+    inputs: [prd]
+    outputs:
+      - { kind: tech-stack, path: docs/technical/Technology-Stack.md }
+      - { kind: tech-risk,  path: docs/technical/Technical-Risk.md }
+    depends_on: [prd_review]
+
+  - id: architecture
+    kind: agent
+    role: architect
+    assignment: template
+    inputs: [prd, tech_selection]
+    outputs:
+      - { kind: architecture,  path: docs/technical/Architecture.md }
+      - { kind: db-design,     path: docs/technical/Database-Design.md }
+      - { kind: api-spec,      path: docs/technical/API-Spec.md }
+      - { kind: security,      path: docs/technical/Security.md }
+      - { kind: deployment,    path: docs/technical/Deployment.md }
+    depends_on: [tech_selection]
+
+  - id: design_review
+    kind: human
+    reviewer: user
+    gate: design-gate
+    subject: architecture
+    on_reject: { goto: architecture }
+
+  # ─── Phase 3 · 排期与设计 ──────────────────────────────────────
+  - id: planning
+    kind: agent
+    role: project-manager
+    assignment: template
+    inputs: [prd, architecture]
+    outputs:
+      - { kind: project-plan, path: docs/project/Project-Plan.md }
+      - { kind: task-list,    path: docs/project/Task-List.md }
+      - { kind: milestones,   path: docs/project/Milestone.md }
+      - { kind: risk,         path: docs/project/Risk.md }
+    depends_on: [design_review]
+
+  - id: design
+    kind: agent
+    role: designer
+    assignment: template
+    inputs: [prd, architecture]
+    outputs:
+      - { kind: ux-overview,    path: docs/design/UX-Overview.md }
+      - { kind: page-structure, path: docs/design/Page-Structure.md }
+      - { kind: interaction,    path: docs/design/Interaction.md }
+      - { kind: visual-tokens,  path: docs/design/Visual-Tokens.md }
+    depends_on: [design_review]
+
+  # ─── Phase 4 · 开发（前后端并行） ─────────────────────────────
+  - parallel:
+      - id: frontend_dev
+        kind: agent
+        role: frontend
+        assignment: auto-claim                    # 能力池认领：任何有 frontend + coding 能力的 Agent
+        inputs: [prd, architecture, design, planning]
+        outputs:
+          - { kind: source, path: frontend/** }
+
+      - id: backend_dev
+        kind: agent
+        role: backend
+        assignment: auto-claim
+        inputs: [prd, architecture, planning]
+        outputs:
+          - { kind: source, path: backend/** }
+    depends_on: [planning, design]
+
+  - id: development_gate
+    kind: human
+    reviewer: user
+    gate: development-gate
+    subject: [frontend_dev, backend_dev]
+    on_reject: { goto: [frontend_dev, backend_dev] }
+
+  # ─── Phase 5 · 测试 · 修 Bug · 回归 ─────────────────────────────
+  - id: qa_test
+    kind: agent
+    role: qa
+    assignment: template
+    inputs: [prd, architecture, frontend_dev, backend_dev]
+    outputs:
+      - { kind: test-plan,   path: docs/qa/Test-Plan.md }
+      - { kind: test-cases,  path: docs/qa/Test-Cases.md }
+      - { kind: test-report, path: docs/qa/Test-Report.md }
+      - { kind: bug-report,  path: docs/qa/Bug-Report.md }
+    depends_on: [development_gate]
+
+  - id: qa_gate
+    kind: condition
+    condition: qa_test.output.bug-report.critical_count == 0
+    on_true: { goto: acceptance_prep }
+    on_false: { goto: bug_fix }
+
+  - id: bug_fix
+    kind: agent
+    role: frontend                                # 也可 backend，实际按 Bug 分类分配
+    assignment: manual                            # QA 报告里已分类，项目经理指派
+    inputs: [qa_test.output.bug-report]
+    outputs:
+      - { kind: source, path: [frontend/**, backend/**] }
+    on_complete: { goto: regression }
+
+  - id: regression
+    kind: agent
+    role: qa
+    assignment: template
+    inputs: [qa_test.output.test-cases, bug_fix]
+    outputs:
+      - { kind: regression-report, path: docs/qa/Regression-Report.md }
+    on_complete:
+      - condition: regression.output.regression-report.all_passed == true
+        goto: acceptance_prep
+      - condition: regression.output.regression-report.all_passed == false
+        goto: bug_fix                             # 修不好就一直循环
+
+  # ─── Phase 6 · 验收 ────────────────────────────────────────────
+  - id: acceptance_prep
+    kind: agent
+    role: acceptance
+    assignment: template
+    inputs:
+      - prd.output.acceptance
+      - qa_test.output.test-report
+      - regression.output.regression-report
+    outputs:
+      - { kind: acceptance-report, path: docs/acceptance/Acceptance-Report.md }
+
+  - id: final_acceptance
+    kind: human
+    reviewer: user
+    gate: acceptance-gate                         # 品牌红线：永远人工
+    subject: acceptance_prep
+    on_reject: { goto: bug_fix }                  # 打回 → 补 Bug → 回归 → 再验
+    on_approve: { goto: __completed__ }
+
+# 关键卡点
+gates:
+  - id: requirement-gate
+    display_name: 需求评审
+    required: true
+  - id: design-gate
+    display_name: 技术方案评审
+    required: true
+  - id: development-gate
+    display_name: 开发完成评审
+    required: false                               # 用户可选择跳过（直接进 QA）
+  - id: acceptance-gate
+    display_name: 最终验收
+    required: true                                # 永远不可跳过（品牌红线）

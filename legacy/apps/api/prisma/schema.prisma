@@ -1,0 +1,246 @@
+// 不令 · 数据模型（R1）
+// 与产品原型的 AGENTS / TASKS / DOCS / PROVIDERS 一一对应；
+// 详细字段设计与索引理由见 docs/企业级架构与落地方案.md § 5。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------- identity --------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  displayName  String
+  passwordHash String
+  roles        String[] // ["admin","reviewer","operator","viewer"]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  approvedDocs Doc[]    @relation("DocApprover")
+  auditLogs    AuditLog[]
+}
+
+// -------- agents --------
+
+model Agent {
+  id             String       @id @default(cuid())
+  name           String
+  avatar         String
+  role           String
+  status         AgentStatus  @default(idle)
+  bio            String
+  skills         String[]
+  modules        String[]     // 指向 MODULE_CATALOG 的 key（当前 mock；R2 改为 SkillModule 关系表）
+  collabPref     CollabPref   @default(auto)
+  modelKey       String?      // 指向 Provider.models[].id
+  effort         Effort       @default(medium)
+  permissions    Json         // { confirmCode, confirmExternal, budget }
+  traceDelta     Int          @default(0)
+  traceLabel     String?
+  recentRejects  Int          @default(0)
+  stats          Json         // { tasksDone, avgScore, collabs }
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  docs           Doc[]
+
+  @@index([status])
+}
+
+enum AgentStatus {
+  working
+  idle
+  offline
+}
+
+enum CollabPref {
+  auto
+  manual
+}
+
+enum Effort {
+  low
+  medium
+  high
+}
+
+// -------- tasks --------
+
+model Task {
+  id               String     @id @default(cuid())
+  title            String
+  description      String
+  status           TaskStatus @default(open)
+  priority         Priority   @default(mid)
+  requiredSkills   String[]
+  assignees        String[]   // Agent.id[]（去范式，方便列表查询）
+  progressPct      Int        @default(0)
+  openHours        Int        @default(0) // 未认领时长；意愿累积输入
+  pinned           Boolean    @default(false)
+  due              String
+  plan             Json       // Step[] { title, status, agentId?, squad?, blocked?, light? }
+  assignMode       AssignMode @default(auto)
+  teamId           String?
+  teamOwnerAgentId String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  docs   Doc[]
+  events CollaborationEvent[]
+  team   Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([pinned, openHours])
+  @@index([teamId])
+}
+
+enum TaskStatus {
+  open
+  planning
+  progress
+  review
+  done
+}
+
+enum Priority {
+  high
+  mid
+  low
+}
+
+enum AssignMode {
+  auto
+  manual
+  team
+}
+
+// 团队：与自主认领并列的第二种任务组织方式（详见 docs/协作机制设计.md § 1.1）
+// 团队负责人可给团队内任务的步骤指派人、汇总提交评审；但 review→done 仍走 review 模块红线，负责人无此权。
+model Team {
+  id             String   @id @default(cuid())
+  name           String
+  description    String   @default("")
+  ownerAgentId   String
+  memberAgentIds String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tasks Task[]
+}
+
+// -------- collaboration --------
+
+model CollaborationEvent {
+  id        String    @id @default(cuid())
+  taskId    String
+  type      EventType
+  agentId   String?
+  text      String
+  docId     String?
+  at        DateTime  @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, at])
+}
+
+enum EventType {
+  system
+  agent_msg
+  agent_typing
+}
+
+// -------- docs --------
+
+model Doc {
+  id               String       @id @default(cuid())
+  title            String
+  type             DocType
+  taskId           String?
+  agentId          String
+  preview          String
+  storageKey       String?      // MinIO / S3 key（二进制内容）
+  reviewStatus     ReviewStatus @default(pending)
+  approvedByUserId String?
+  approvedAt       DateTime?
+  createdAt        DateTime     @default(now())
+
+  task     Task?  @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  agent    Agent  @relation(fields: [agentId], references: [id])
+  approver User?  @relation("DocApprover", fields: [approvedByUserId], references: [id])
+
+  @@index([taskId])
+  @@index([reviewStatus])
+}
+
+enum DocType {
+  doc
+  pdf
+  sheet
+  image
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+// -------- providers（AI API 提供方） --------
+
+model Provider {
+  id          String         @id @default(cuid())
+  name        String
+  type        ProviderType
+  baseUrl     String
+  // 密钥永远密文落库；界面脱敏；只在外发上游前解密。
+  apiKeyEnc   Bytes?
+  apiKeyIv    Bytes?
+  apiKeyTag   Bytes?
+  apiKeyLast4 String?        // "9c1d" 用于界面 sk-****9c1d 展示
+  enabled     Boolean        @default(true)
+  status      ProviderStatus @default(untested)
+  models      Json           // [{ id, label, hint, ctx }]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([enabled, status])
+}
+
+enum ProviderType {
+  anthropic
+  openai
+  compatible
+}
+
+enum ProviderStatus {
+  connected
+  untested
+  error
+}
+
+// -------- audit（所有写操作强制落库） --------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorType String   // "user" | "system" | "agent"
+  actorId   String
+  action    String   // "task.publish" | "review.approve" | ...
+  entity    String   // "task" | "doc" | ...
+  entityId  String
+  before    Json?
+  after     Json?
+  ip        String?
+  at        DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([actorId, at])
+}

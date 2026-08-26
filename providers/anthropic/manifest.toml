@@ -1,0 +1,26 @@
+# Anthropic 官方 API —— Messages API (`POST /v1/messages`)。
+# Wire format 字段已用 claude-api skill 的权威参考核实（不臆造）；
+# 见 runtime/crates/opc-provider/src/api/anthropic_messages.rs 顶部注释。
+
+id = "anthropic-api"
+display_name = "Anthropic 官方"
+vendor = "Anthropic"
+kind = "api"
+wire_format = "anthropic-messages"
+
+default_base_url = "https://api.anthropic.com"
+credential_service = "anthropic"
+
+# 当前有效 model id（核实于本仓库开发时的 claude-api 权威参考，见
+# docs/OPC-架构决策.md ADR-005 附注；模型会迭代，UI 应支持用户手动改）。
+default_model = "claude-sonnet-5"
+models = [
+  "claude-opus-5",
+  "claude-sonnet-5",
+  "claude-haiku-4-5",
+]
+
+# 云端 API：不满足 sensitivity=high（默认只允许本地 Provider）的隐私哨兵硬拦，
+# 见 docs/OPC-数据模型.md §3.2 与 agents/acceptance.yaml。
+allowed_sensitivity = ["low", "medium"]
+privacy_note = "用户明示配置 API Key 后直连 Anthropic API；每次调用即视为外发。"

@@ -1,0 +1,45 @@
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# 依赖 / 构建
+node_modules/
+dist/
+build/
+.next/
+*.tsbuildinfo
+*.log
+pnpm-lock.yaml.bak
+
+# 本地配置
+.env
+.env.local
+.env.*.local
+
+# Prisma（旧骨架 · 已归档到 legacy/）
+legacy/apps/api/prisma/migrations/dev.db
+legacy/apps/api/prisma/dev.db*
+
+# Playwright / test outputs
+apps/*/playwright-report/
+apps/*/test-results/
+
+# Rust
+target/
+runtime/target/
+apps/desktop/src-tauri/target/
+Cargo.lock.bak
+**/*.rs.bk
+
+# Tauri 生成物
+apps/desktop/src-tauri/gen/
+
+# 本地 SQLite 副本
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm

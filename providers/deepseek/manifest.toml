@@ -1,0 +1,16 @@
+# DeepSeek —— 官方文档声明与 OpenAI SDK / Chat Completions 兼容。
+
+id = "deepseek-api"
+display_name = "DeepSeek"
+vendor = "DeepSeek"
+kind = "api"
+wire_format = "openai-compatible"
+
+default_base_url = "https://api.deepseek.com"
+credential_service = "deepseek"
+
+# 型号列表不在此处臆造，交由用户在「模型中心」手填。
+models = []
+
+allowed_sensitivity = ["low", "medium"]
+privacy_note = "用户明示配置 API Key 后直连 DeepSeek API；每次调用即视为外发。"

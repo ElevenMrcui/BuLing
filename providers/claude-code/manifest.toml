@@ -1,0 +1,14 @@
+# Claude Code CLI —— Anthropic 官方终端 Coding Agent。
+# 参数已用真实 `claude --help` 输出核实（不臆造）；见
+# runtime/crates/opc-provider/src/cli/claude_code.rs 顶部注释。
+
+id = "claude-code"
+display_name = "Claude Code"
+vendor = "Anthropic"
+kind = "cli"
+
+cli_adapter = "claude-code"
+cli_binary = "claude"
+
+allowed_sensitivity = ["low", "medium"]
+privacy_note = "走用户本机已登录的 Claude Code 会话；数据流向遵循用户与 Anthropic 之间已有的服务条款。"

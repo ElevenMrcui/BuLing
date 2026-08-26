@@ -1,0 +1,3229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>不令</title>
+<!-- PWA / 手机浏览器体验：颜色跟随浅/深色，可加到主屏，全屏无浏览器栏（iOS 需 Safari 手动"添加到主屏幕"）。
+     单文件原型没有 service worker，装到主屏后是"仅在线版"；R2 分发到 apps/web 时再补真正的 SW。 -->
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0d" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="不令">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="%23007aff"/><text x="32" y="44" font-family="-apple-system,SF Pro Text,Helvetica,Arial,sans-serif" font-size="34" font-weight="700" text-anchor="middle" fill="white">令</text></svg>'>
+<link rel="apple-touch-icon" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180"><rect width="180" height="180" rx="36" fill="%23007aff"/><text x="90" y="124" font-family="-apple-system,SF Pro Text,Helvetica,Arial,sans-serif" font-size="98" font-weight="700" text-anchor="middle" fill="white">令</text></svg>'>
+<link rel="manifest" href='data:application/manifest+json;charset=utf-8,{"name":"不令","short_name":"不令","description":"去中心化多智能体协作平台","start_url":".","display":"standalone","orientation":"portrait-primary","background_color":"%23f5f5f7","theme_color":"%23007aff","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22><rect width=%22512%22 height=%22512%22 rx=%22100%22 fill=%22%23007aff%22/><text x=%22256%22 y=%22350%22 font-family=%22-apple-system,SF Pro Text,Helvetica,Arial,sans-serif%22 font-size=%22280%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22white%22>令</text></svg>","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}'>
+<style>
+  /* ============ Design tokens ============ */
+  :root{
+    --bg: #f5f5f7;
+    --bg-elevated: #fbfbfd;
+    --surface: #ffffff;
+    --surface-translucent: rgba(255,255,255,0.74);
+    --surface-sunken: #eeeef0;
+    --ink: #1d1d1f;
+    --ink-secondary: #6e6e73;
+    --ink-tertiary: #707076;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.14);
+    --accent: #0071e3;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(0,113,227,0.10);
+    --accent-soft-strong: rgba(0,113,227,0.16);
+    --purple: #8f35bc;
+    --purple-soft: rgba(175,82,222,0.12);
+    --success: #1f7a36;
+    --success-soft: rgba(52,199,89,0.14);
+    --warning: #b25000;
+    --warning-soft: rgba(255,149,0,0.14);
+    --danger: #d70015;
+    --danger-soft: rgba(255,59,48,0.12);
+    --neutral-soft: rgba(110,110,115,0.12);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05), 0 1px 1px rgba(0,0,0,0.04);
+    --shadow-md: 0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+    --shadow-lg: 0 24px 64px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.06);
+    --radius-s: 10px;
+    --radius-m: 16px;
+    --radius-l: 22px;
+    --radius-pill: 999px;
+    --ease: cubic-bezier(.22,.9,.32,1);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #000000;
+      --bg-elevated: #0a0a0c;
+      --surface: #1c1c1e;
+      --surface-translucent: rgba(28,28,30,0.68);
+      --surface-sunken: #131315;
+      --ink: #f5f5f7;
+      --ink-secondary: #98989d;
+      --ink-tertiary: #8a8a8f;
+      --border: rgba(255,255,255,0.09);
+      --border-strong: rgba(255,255,255,0.16);
+      --accent: #0a84ff;
+      --accent-ink: #ffffff;
+      --accent-soft: rgba(10,132,255,0.16);
+      --accent-soft-strong: rgba(10,132,255,0.26);
+      --purple: #bf5af2;
+      --purple-soft: rgba(191,90,242,0.18);
+      --success: #30d158;
+      --success-soft: rgba(48,209,88,0.16);
+      --warning: #ff9f0a;
+      --warning-soft: rgba(255,159,10,0.16);
+      --danger: #ff453a;
+      --danger-soft: rgba(255,69,58,0.16);
+      --neutral-soft: rgba(152,152,157,0.16);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow-md: 0 8px 24px rgba(0,0,0,0.45);
+      --shadow-lg: 0 24px 64px rgba(0,0,0,0.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg: #000000;
+    --bg-elevated: #0a0a0c;
+    --surface: #1c1c1e;
+    --surface-translucent: rgba(28,28,30,0.68);
+    --surface-sunken: #131315;
+    --ink: #f5f5f7;
+    --ink-secondary: #98989d;
+    --ink-tertiary: #8a8a8f;
+    --border: rgba(255,255,255,0.09);
+    --border-strong: rgba(255,255,255,0.16);
+    --accent: #0a84ff;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(10,132,255,0.16);
+    --accent-soft-strong: rgba(10,132,255,0.26);
+    --purple: #bf5af2;
+    --purple-soft: rgba(191,90,242,0.18);
+    --success: #30d158;
+    --success-soft: rgba(48,209,88,0.16);
+    --warning: #ff9f0a;
+    --warning-soft: rgba(255,159,10,0.16);
+    --danger: #ff453a;
+    --danger-soft: rgba(255,69,58,0.16);
+    --neutral-soft: rgba(152,152,157,0.16);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-md: 0 8px 24px rgba(0,0,0,0.45);
+    --shadow-lg: 0 24px 64px rgba(0,0,0,0.6);
+    color-scheme: dark;
+  }
+
+  *,*::before,*::after{ box-sizing: border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+  h1,h2,h3,h4,p{ margin:0; }
+  button{ font-family: inherit; }
+  ::selection{ background: var(--accent-soft-strong); }
+
+  /* Visible keyboard focus on every interactive element (buttons, nav, cards, chips, tabs) */
+  button, [tabindex], a, .nav-item, .agent-card, .task-card, .doc-card, .create-agent-card,
+  .filter-chip, .radio-card, .chip button, .switch input{
+    outline: none;
+  }
+  button:focus-visible, [tabindex]:focus-visible, a:focus-visible, .nav-item:focus-visible,
+  .agent-card:focus-visible, .task-card:focus-visible, .doc-card:focus-visible, .create-agent-card:focus-visible,
+  .filter-chip:focus-visible, .radio-card:focus-visible,
+  .switch input:focus-visible ~ .track{
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb{ background: var(--border-strong); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-track{ background: transparent; }
+
+  .icon{ display:inline-block; vertical-align:middle; stroke: currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; width:1em; height:1em; flex-shrink:0; }
+
+  a{ color: inherit; }
+
+  /* ============ App shell ============ */
+  .app-shell{ display:flex; min-height:100vh; }
+
+  .sidebar{
+    width: 248px;
+    flex: 0 0 248px;
+    position: sticky;
+    top:0;
+    height: 100vh;
+    background: var(--surface-translucent);
+    backdrop-filter: blur(28px) saturate(1.6);
+    -webkit-backdrop-filter: blur(28px) saturate(1.6);
+    border-right: 1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    padding: 20px 14px;
+    gap: 4px;
+    z-index: 40;
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px;
+    padding: 6px 10px 20px;
+  }
+  .brand-mark{
+    width:34px; height:34px; border-radius:10px;
+    background: linear-gradient(155deg, var(--accent), var(--purple));
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:17px; font-weight:700;
+    box-shadow: var(--shadow-sm);
+    flex-shrink:0;
+  }
+  .brand-text{ display:flex; flex-direction:column; line-height:1.15; }
+  .brand-text b{ font-size:15.5px; font-weight:650; letter-spacing:-0.01em; }
+  .brand-text span{ font-size:11.5px; color: var(--ink-tertiary); }
+
+  .mechanism-entry{
+    display:flex; align-items:center; gap:8px;
+    width:100%; margin: 2px 0 10px; padding: 8px 10px;
+    border-radius: 11px; border: 1px dashed var(--border-strong);
+    background: transparent; color: var(--ink-tertiary);
+    font-size: 11.5px; font-weight: 560; cursor: pointer; text-align:left;
+    transition: border-color .18s var(--ease), color .18s var(--ease), background .18s var(--ease);
+  }
+  .mechanism-entry .icon{ width:14px; height:14px; flex-shrink:0; color: var(--purple); }
+  .mechanism-entry:hover{ border-color: var(--purple); color: var(--purple); background: var(--purple-soft); border-style:solid; }
+
+  /* ============ Mechanism (ant / bee / wolf) ============ */
+
+  .mech-modal-block{ margin-bottom:18px; }
+  .mech-modal-block:last-child{ margin-bottom:0; }
+  .mech-modal-block .head{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .mech-modal-block .head .mark{ width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .mech-modal-block .head b{ font-size:13.5px; font-weight:650; }
+  .mech-modal-block .head .tag{ font-size:11px; color: var(--ink-tertiary); }
+  .mech-modal-block p{ font-size:12.5px; color: var(--ink-secondary); line-height:1.7; padding-left:42px; }
+  .mech-quote{ margin-top:20px; padding:16px 18px; border-radius:14px; background: var(--surface-sunken); text-align:center; }
+  .mech-quote .q{ font-size:15px; font-weight:650; letter-spacing:.02em; }
+  .mech-quote .a{ font-size:11px; color: var(--ink-tertiary); margin-top:6px; }
+
+  /* ---- 机制矩阵（场景 × 可用逻辑 × 落地方式 × 不可用逻辑）---- */
+  .matrix-row{ padding:14px 2px; border-bottom:1px solid var(--border); }
+  .matrix-row:first-child{ padding-top:0; }
+  .matrix-row:last-child{ border-bottom:none; padding-bottom:0; }
+  .matrix-row .scene{ display:flex; align-items:center; gap:8px; margin-bottom:9px; }
+  .matrix-row .scene .idx{ font-size:10.5px; font-weight:700; color: var(--ink-tertiary); font-variant-numeric: tabular-nums; }
+  .matrix-row .scene b{ font-size:13.5px; font-weight:650; }
+  .matrix-row .scene .where{ font-size:10.5px; color: var(--ink-tertiary); background: var(--neutral-soft); padding:1.5px 8px; border-radius: var(--radius-pill); margin-left:auto; }
+  .matrix-line{ display:flex; align-items:flex-start; gap:8px; font-size:12px; color: var(--ink-secondary); line-height:1.6; margin-bottom:6px; }
+  .matrix-line .tag{ flex-shrink:0; font-size:10px; font-weight:700; padding:2px 8px; border-radius: var(--radius-pill); margin-top:1px; white-space:nowrap; }
+  .matrix-line.use .tag{ background: var(--success-soft); color: var(--success); }
+  .matrix-line.avoid .tag{ background: var(--danger-soft); color: var(--danger); }
+  .matrix-land{ display:flex; align-items:flex-start; gap:5px; font-size:11.5px; color: var(--ink-tertiary); padding:7px 10px; margin:2px 0 8px; background: var(--surface-sunken); border-radius:9px; line-height:1.6; }
+  .matrix-land .icon{ width:12px; height:12px; margin-top:3px; flex-shrink:0; }
+  .mech-redline{ display:flex; gap:12px; align-items:flex-start; margin-top:6px; padding:15px 16px; border-radius:14px; background: var(--danger-soft); border:1px solid rgba(215,0,21,0.18); }
+  .mech-redline .icon{ width:18px; height:18px; flex-shrink:0; color: var(--danger); margin-top:1px; }
+  .mech-redline b{ font-size:12.5px; color: var(--danger); display:block; margin-bottom:4px; }
+  .mech-redline span{ font-size:11.5px; color: var(--ink-secondary); line-height:1.65; }
+
+  .lead-tag{ display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:650; padding:2.5px 9px 2.5px 7px; border-radius: var(--radius-pill); background: var(--purple-soft); color: var(--purple); }
+  .lead-tag .icon{ width:10px; height:10px; }
+  .trail-tag{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:600; color: var(--ink-tertiary); }
+  .trail-tag .icon{ width:11px; height:11px; }
+  .swarm-note{ display:flex; align-items:center; gap:6px; font-size:11px; color: var(--ink-tertiary); margin-bottom:8px; }
+  .swarm-note .icon{ width:12px; height:12px; flex-shrink:0; color: var(--warning); }
+  .swarm-note b{ color: var(--ink-secondary); font-weight:620; }
+
+  /* ---- 认领意愿强度条：自主认领机制的动态累积值，不是算一次就定死的静态分数 ---- */
+  @keyframes intentShimmer{ 0%{ background-position: 0 0; } 100%{ background-position: 40px 0; } }
+  .intent-bar{ position:relative; height:6px; border-radius:4px; background: var(--neutral-soft); overflow:hidden; margin-top:6px; }
+  .intent-bar .fill{ position:absolute; inset:0 auto 0 0; border-radius:4px; background: linear-gradient(90deg, var(--accent), var(--purple)); background-size: 200% 100%; }
+  .intent-bar.animate .fill{ background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.22) 0 6px, transparent 6px 12px), linear-gradient(90deg, var(--accent), var(--purple)); animation: intentShimmer 1s linear infinite; }
+  .intent-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color: var(--ink-tertiary); margin-top:4px; }
+  .intent-row b{ color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+  .trace-hint{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:600; padding:1.5px 8px; border-radius: var(--radius-pill); }
+  .trace-hint.boost{ background: var(--success-soft); color: var(--success); }
+  .trace-hint.decay{ background: var(--neutral-soft); color: var(--ink-tertiary); }
+  .trace-hint.downweight{ background: var(--danger-soft); color: var(--danger); }
+
+  /* ---- 紧急度：未认领时长持续累积强度，非人工写死的高/中/低 ---- */
+  .urgency-rail{ height:3px; border-radius:3px; background: var(--neutral-soft); margin:-1px -1px 10px; overflow:hidden; }
+  .urgency-rail .fill{ height:100%; border-radius:3px; transition: width .3s var(--ease); }
+  .urgency-row{ display:flex; align-items:center; gap:6px; font-size:10.5px; color: var(--ink-tertiary); margin-bottom:2px; }
+  .urgency-row .icon{ width:11px; height:11px; flex-shrink:0; }
+  .pin-btn{ margin-left:auto; border:none; background:transparent; color: var(--ink-tertiary); cursor:pointer; display:flex; align-items:center; gap:3px; font-size:10.5px; font-weight:600; padding:2px 6px; border-radius:6px; }
+  .pin-btn:hover{ background: var(--neutral-soft); color: var(--ink); }
+  .pin-btn.pinned{ color: var(--warning); }
+  .pin-btn .icon{ width:11px; height:11px; }
+  .pinned-tag{ display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color: var(--warning); background: var(--warning-soft); padding:2px 8px; border-radius: var(--radius-pill); }
+
+  /* ---- 轻量执行单元：协作痕迹机制下的无状态执行单元，用完即释放，不占 Agent 中心名额 ---- */
+  .light-unit{ display:flex; align-items:center; gap:8px; font-size:11.5px; color: var(--ink-tertiary); }
+  .light-unit .mark{ width:22px; height:22px; border-radius:7px; background: var(--surface-sunken); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .light-unit .mark .icon{ width:12px; height:12px; }
+
+  /* ---- 换人接棒 / 卡点攻坚小组 ---- */
+  .plan-actions{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .squad-badge{ display:flex; align-items:center; gap:8px; margin-top:10px; padding:9px 11px; border-radius:11px; background: var(--purple-soft); }
+  .squad-badge .who{ display:flex; }
+  .squad-badge .who .avatar{ width:24px; height:24px; font-size:12px; border-radius:7px; margin-left:-6px; border:2px solid var(--surface); }
+  .squad-badge .who .avatar:first-child{ margin-left:0; }
+  .squad-badge .text{ font-size:11px; color: var(--purple); font-weight:600; flex:1; }
+  .handoff-menu{ display:flex; flex-direction:column; gap:4px; margin-top:8px; padding:8px; border-radius:11px; background: var(--surface-sunken); }
+  .handoff-opt{ display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:8px; border:none; background:transparent; cursor:pointer; text-align:left; font-family:inherit; font-size:12px; color:var(--ink); }
+  .handoff-opt:hover{ background: var(--neutral-soft); }
+  .handoff-opt .avatar{ width:24px; height:24px; font-size:12px; border-radius:7px; }
+
+  .nav-group-label{
+    font-size:11px; font-weight:600; color: var(--ink-tertiary);
+    text-transform:uppercase; letter-spacing:0.04em;
+    padding: 14px 12px 6px;
+    /* 纯文本标签，不接收点击——避免在窄屏抽屉里覆盖下方 nav-item */
+    pointer-events:none; user-select:none;
+  }
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    color: var(--ink-secondary);
+    cursor:pointer;
+    font-size: 13.5px;
+    font-weight: 500;
+    border:none; background:transparent; text-align:left; width:100%;
+    transition: background .18s var(--ease), color .18s var(--ease);
+  }
+  .nav-item .icon{ width:18px; height:18px; flex-shrink:0; }
+  .nav-item:hover{ background: var(--neutral-soft); color: var(--ink); }
+  .nav-item.active{ background: var(--accent); color: #fff; box-shadow: var(--shadow-sm); }
+  .nav-item .count{
+    margin-left:auto; font-size:11px; font-weight:600;
+    color: var(--ink-tertiary); background: var(--neutral-soft);
+    padding: 1px 7px; border-radius: 20px;
+  }
+  .nav-item.active .count{ background: rgba(255,255,255,0.25); color:#fff; }
+
+  .sidebar-foot{
+    margin-top:auto; padding: 10px 12px 4px;
+    display:flex; align-items:center; gap:10px;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+  }
+  .theme-toggle{
+    display:flex; gap:4px; background: var(--neutral-soft); padding:3px; border-radius: 10px; margin-top: 8px;
+  }
+  .theme-toggle button{
+    flex:1; border:none; background:transparent; padding:6px 0; border-radius:7px;
+    color: var(--ink-secondary); font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px;
+  }
+  .theme-toggle button.active{ background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+  .theme-resolved{ opacity:.55; font-size:10.5px; margin-left:1px; }
+
+  .user-chip{ display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:10px; }
+  .user-chip .avatar{ width:26px; height:26px; font-size:13px; }
+  .user-chip b{ font-size:12.5px; }
+  .user-chip span{ font-size:11px; color: var(--ink-tertiary); }
+
+  .main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .topbar{
+    position: sticky; top:0; z-index:30;
+    display:flex; align-items:center; gap:16px;
+    padding: 16px 32px;
+    background: var(--surface-translucent);
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar h1{ font-size: 22px; font-weight: 650; letter-spacing:-0.015em; text-wrap: balance; }
+  .topbar .sub{ font-size:12.5px; color: var(--ink-tertiary); margin-top:2px; }
+  .topbar-actions{ margin-left:auto; display:flex; gap:10px; align-items:center; }
+
+  .search-box{
+    display:flex; align-items:center; gap:7px;
+    background: var(--neutral-soft); border-radius: 10px; padding:7px 10px;
+    color: var(--ink-tertiary); font-size:13px; min-width:200px;
+  }
+  .search-box input{ border:none; background:transparent; outline:none; color:var(--ink); font-size:13px; width:100%; font-family:inherit; }
+  .search-box .icon{ width:15px; height:15px; flex-shrink:0; }
+
+  .view{ padding: 26px 32px 60px; max-width: 1320px; }
+  .view[hidden]{ display:none; }
+  @keyframes viewIn{ from{ opacity:0; transform: translateY(6px); } to{ opacity:1; transform:none; } }
+  .view{ animation: viewIn .32s var(--ease); }
+
+  /* ============ Buttons / form atoms ============ */
+  .btn{
+    display:inline-flex; align-items:center; gap:6px; justify-content:center;
+    border-radius: var(--radius-pill); border:1px solid transparent;
+    padding: 8px 16px; font-size:13.5px; font-weight:560; cursor:pointer;
+    transition: transform .15s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease);
+    white-space:nowrap;
+  }
+  .btn .icon{ width:15px; height:15px; }
+  .btn:active{ transform: scale(0.96); }
+  .btn-primary{ background: var(--accent); color:#fff; box-shadow: var(--shadow-sm); }
+  .btn-primary:hover{ filter:brightness(1.06); }
+  .btn-secondary{ background: var(--neutral-soft); color: var(--ink); }
+  .btn-secondary:hover{ background: var(--border-strong); }
+  .btn-ghost{ background:transparent; color: var(--ink-secondary); border-color: var(--border); }
+  .btn-ghost:hover{ background: var(--neutral-soft); color: var(--ink); }
+  .btn-sm{ padding:5px 12px; font-size:12.5px; }
+  .btn-icon{ width:32px; height:32px; padding:0; border-radius:50%; background: var(--neutral-soft); color: var(--ink-secondary); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .btn-icon:hover{ background: var(--border-strong); color:var(--ink); }
+  .btn[disabled]{ opacity:.45; cursor:not-allowed; }
+
+  label.field-label{ font-size:12.5px; font-weight:600; color: var(--ink-secondary); display:block; margin-bottom:6px; }
+  .input, textarea.input, select.input{
+    width:100%; background: var(--neutral-soft); border:1px solid transparent; border-radius: 11px;
+    padding:9px 12px; font-size:13.5px; color: var(--ink); outline:none; font-family:inherit;
+    transition: background .15s, border-color .15s;
+  }
+  .input:focus, textarea.input:focus, select.input:focus{ background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  textarea.input{ resize:vertical; min-height:64px; line-height:1.5; }
+  .field{ margin-bottom:16px; }
+  .field-row{ display:flex; gap:14px; }
+  .field-row .field{ flex:1; }
+  .hint{ font-size:11.5px; color: var(--ink-tertiary); margin-top:5px; }
+
+  .tag-input{ display:flex; flex-wrap:wrap; gap:6px; background: var(--neutral-soft); border-radius:11px; padding:8px; min-height:40px; }
+  .tag-input input{ border:none; background:transparent; outline:none; flex:1; min-width:80px; font-size:13px; color:var(--ink); font-family:inherit; padding:3px; }
+  .chip{
+    display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:560;
+    padding: 3px 10px; border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent);
+  }
+  .chip button{ border:none; background:transparent; color:inherit; cursor:pointer; padding:0; display:flex; opacity:.7; }
+  .chip button:hover{ opacity:1; }
+  .chip.tone-purple{ background: var(--purple-soft); color: var(--purple); }
+  .chip.tone-neutral{ background: var(--neutral-soft); color: var(--ink-secondary); }
+
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .toggle-row:last-child{ border-bottom:none; }
+  .toggle-row .meta{ display:flex; gap:10px; align-items:flex-start; }
+  .toggle-row .meta .icon-badge{ width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; background:var(--neutral-soft); flex-shrink:0; }
+  .toggle-row .meta .icon-badge .icon{ width:16px; height:16px; }
+  .toggle-row .meta b{ font-size:13px; font-weight:600; display:block; }
+  .toggle-row .meta span{ font-size:11.5px; color: var(--ink-tertiary); }
+  .toggle-row .meta .origin-tag{ font-size:9.5px; font-weight:700; letter-spacing:.02em; padding:1.5px 6px; border-radius:var(--radius-pill); margin-left:5px; vertical-align:middle; color:var(--accent); background:var(--accent-soft); }
+  .toggle-row .meta .origin-tag.tone-success{ color:var(--success); background:var(--success-soft); }
+  .toggle-row .meta .origin-tag.tone-purple{ color:var(--purple); background:var(--purple-soft); }
+  .toggle-row .meta .permission-tag{ display:flex; align-items:center; gap:4px; font-size:10.5px; color:var(--ink-tertiary); margin-top:3px; }
+  .toggle-row .meta .permission-tag .icon{ width:11px; height:11px; flex-shrink:0; }
+  .skill-panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:8px; }
+  .skill-source-tabs{ display:flex; gap:3px; background:var(--neutral-soft); padding:3px; border-radius:9px; }
+  .skill-tab{ border:none; background:transparent; padding:5px 11px; border-radius:7px; font-size:11.5px; font-weight:600; color:var(--ink-secondary); cursor:pointer; }
+  .skill-tab.active{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow-sm); }
+  .toggle-row .del-btn{ width:26px; height:26px; border-radius:50%; border:none; background:transparent; color: var(--ink-tertiary); cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .toggle-row .del-btn:hover{ background: var(--danger-soft); color: var(--danger); }
+  .toggle-row .del-btn .icon{ width:14px; height:14px; }
+  .toggle-row .row-actions{ display:flex; align-items:center; gap:6px; }
+  .install-row{ display:flex; gap:8px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .install-row input.input{ flex:1; }
+  .skill-upload-form{ display:flex; flex-direction:column; gap:8px; padding:12px; border-radius:11px; background: var(--surface-sunken); margin-bottom:10px; }
+  .skill-upload-form .field-row{ gap:8px; }
+  .mock-note{ display:flex; align-items:flex-start; gap:6px; font-size:11px; color: var(--ink-tertiary); line-height:1.6; padding:8px 2px; }
+  .mock-note .icon{ width:12px; height:12px; margin-top:2px; flex-shrink:0; }
+
+  /* ---- 模型接入：提供方卡片 + 向导里按提供方分组的模型选择 ---- */
+  .provider-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap:16px; }
+  .provider-card{ padding:18px 20px; display:flex; flex-direction:column; gap:12px; }
+  .provider-card.is-disabled{ opacity:.62; }
+  .provider-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .provider-title{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .provider-title b{ font-size:14.5px; font-weight:650; }
+  .provider-meta{ display:flex; flex-direction:column; gap:6px; }
+  .provider-meta-row{ display:flex; align-items:center; gap:7px; font-size:11.5px; color: var(--ink-tertiary); }
+  .provider-meta-row .icon{ width:13px; height:13px; flex-shrink:0; }
+  .provider-meta-row .k{ width:58px; flex-shrink:0; }
+  .provider-meta-row code{ font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:11px; color: var(--ink-secondary); background: var(--surface-sunken); padding:2px 7px; border-radius:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .provider-models{ display:flex; flex-wrap:wrap; gap:6px; }
+  .provider-foot{ display:flex; align-items:center; gap:6px; padding-top:10px; border-top:1px solid var(--border); flex-wrap:wrap; }
+
+  .model-provider-group{ margin-bottom:14px; }
+  .model-provider-group:last-child{ margin-bottom:0; }
+  .model-provider-label{ display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:640; color: var(--ink-secondary); margin-bottom:8px; }
+  .model-provider-label .icon{ width:13px; height:13px; color: var(--ink-tertiary); }
+  .radio-card-group.model-group{ flex-wrap:wrap; }
+  .radio-card-group.model-group .radio-card{ flex: 1 1 180px; }
+  .switch{ position:relative; width:40px; height:24px; flex-shrink:0; }
+  .switch input{ opacity:0; width:100%; height:100%; margin:0; position:absolute; cursor:pointer; z-index:1; }
+  .switch .track{ position:absolute; inset:0; background: var(--border-strong); border-radius:20px; transition: background .2s var(--ease); }
+  .switch .thumb{ position:absolute; top:2px; left:2px; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s var(--ease); }
+  .switch input:checked ~ .track{ background: var(--success); }
+  .switch input:checked ~ .thumb{ transform: translateX(16px); }
+
+  .radio-card-group{ display:flex; gap:10px; }
+  .radio-card{ flex:1; border:1.5px solid var(--border); border-radius: 12px; padding:10px 12px; cursor:pointer; }
+  .radio-card b{ font-size:12.5px; display:block; }
+  .radio-card span{ font-size:11px; color: var(--ink-tertiary); }
+  .radio-card.selected{ border-color: var(--accent); background: var(--accent-soft); }
+
+  /* ============ Cards / pills / avatars ============ */
+  .card{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-l); box-shadow: var(--shadow-sm); }
+
+  .avatar{
+    width:42px; height:42px; border-radius: 12px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; flex-shrink:0;
+    background: var(--neutral-soft);
+  }
+  .avatar.round{ border-radius:50%; }
+
+  .pill{
+    display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:620;
+    padding: 3px 9px 3px 7px; border-radius: var(--radius-pill);
+  }
+  .pill::before{ content:""; width:6px; height:6px; border-radius:50%; background: currentColor; }
+  .pill.st-idle{ background: var(--neutral-soft); color: var(--ink-secondary); }
+  .pill.st-working{ background: var(--success-soft); color: var(--success); }
+  .pill.st-offline{ background: var(--neutral-soft); color: var(--ink-tertiary); }
+  .pill.st-open{ background: var(--accent-soft); color: var(--accent); }
+  .pill.st-planning{ background: var(--purple-soft); color: var(--purple); }
+  .pill.st-review{ background: var(--warning-soft); color: var(--warning); }
+  .pill.st-done{ background: var(--success-soft); color: var(--success); }
+  .pill.st-high{ background: var(--danger-soft); color: var(--danger); }
+  .pill.st-mid{ background: var(--warning-soft); color: var(--warning); }
+  .pill.st-low{ background: var(--neutral-soft); color: var(--ink-secondary); }
+
+  .skill-chip{ font-size:11px; font-weight:560; padding:2.5px 9px; border-radius: var(--radius-pill); background: var(--neutral-soft); color: var(--ink-secondary); }
+
+  /* ============ Overview ============ */
+  .stat-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(210px,1fr)); gap:16px; margin-bottom:26px; }
+  .stat-card{ padding:20px 22px; display:flex; flex-direction:column; gap:10px; }
+  .stat-card .top{ display:flex; align-items:center; justify-content:space-between; }
+  .stat-card .icon-badge{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+  .stat-card .icon-badge .icon{ width:17px; height:17px; }
+  .stat-card .value{ font-size:32px; font-weight:680; letter-spacing:-0.02em; font-variant-numeric: tabular-nums; }
+  .stat-card .label{ font-size:12.5px; color: var(--ink-tertiary); }
+  .stat-card .delta{ font-size:11.5px; font-weight:600; }
+  .stat-card .delta.up{ color: var(--success); }
+  .stat-card .delta.flat{ color: var(--ink-tertiary); }
+
+  .section-head{ display:flex; align-items:baseline; justify-content:space-between; margin: 30px 0 14px; }
+  .section-head h2{ font-size:18px; font-weight:640; letter-spacing:-0.01em; }
+  .section-head .link{ font-size:12.5px; color: var(--accent); cursor:pointer; font-weight:560; }
+
+  .two-col{ display:grid; grid-template-columns: 1.4fr 1fr; gap:20px; align-items:start; }
+  @media (max-width: 980px){ .two-col{ grid-template-columns: 1fr; } }
+
+  .timeline{ display:flex; flex-direction:column; }
+  .timeline-item{ display:flex; gap:12px; padding: 12px 4px; position:relative; }
+  .timeline-item .rail{ display:flex; flex-direction:column; align-items:center; }
+  .timeline-item .dot{ width:8px; height:8px; border-radius:50%; margin-top:5px; flex-shrink:0; }
+  .timeline-item .line{ flex:1; width:1.5px; background: var(--border); margin-top:4px; min-height:16px; }
+  .timeline-item:last-child .line{ display:none; }
+  .timeline-item .content{ flex:1; padding-bottom:2px; }
+  .timeline-item .content .head{ font-size:13px; }
+  .timeline-item .content .head b{ font-weight:620; }
+  .timeline-item .content .time{ font-size:11px; color: var(--ink-tertiary); margin-top:2px; }
+  .timeline-item .content .doc-ref{ display:inline-flex; align-items:center; gap:5px; margin-top:6px; font-size:11.5px; padding:4px 9px; border-radius:8px; background: var(--neutral-soft); color: var(--ink-secondary); }
+  .timeline-item .content .doc-ref .icon{ width:12px; height:12px; }
+
+  .agent-mini-list{ display:flex; flex-direction:column; gap:2px; }
+  .agent-mini{ display:flex; align-items:center; gap:10px; padding:9px 6px; border-radius:10px; cursor:pointer; }
+  .agent-mini:hover{ background: var(--neutral-soft); }
+  .agent-mini .avatar{ width:32px; height:32px; font-size:15px; border-radius:9px; }
+  .agent-mini .info b{ font-size:12.5px; display:block; }
+  .agent-mini .info span{ font-size:11px; color: var(--ink-tertiary); }
+  .agent-mini .stat{ margin-left:auto; text-align:right; }
+  .agent-mini .stat b{ font-size:12.5px; font-variant-numeric: tabular-nums; }
+  .agent-mini .stat span{ font-size:10.5px; color: var(--ink-tertiary); display:block; }
+
+  /* ============ Agents grid ============ */
+  .toolbar{ display:flex; align-items:center; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+  .filter-chip{ font-size:12.5px; font-weight:560; padding:6px 13px; border-radius: var(--radius-pill); background: var(--neutral-soft); color: var(--ink-secondary); cursor:pointer; border:1.5px solid transparent; }
+  .filter-chip.active{ background: var(--accent-soft); color: var(--accent); border-color: var(--accent-soft-strong); }
+
+  .agent-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap:16px; }
+  .agent-card{ padding:20px; cursor:pointer; transition: transform .18s var(--ease), box-shadow .18s var(--ease); display:flex; flex-direction:column; gap:14px; }
+  .agent-card:hover{ transform: translateY(-3px); box-shadow: var(--shadow-md); }
+  .agent-card .head{ display:flex; align-items:center; gap:12px; }
+  .agent-card .avatar{ width:46px; height:46px; font-size:22px; border-radius:13px; }
+  .agent-card .head b{ font-size:14.5px; font-weight:640; display:block; }
+  .agent-card .head .role{ font-size:12px; color: var(--ink-tertiary); margin-top:1px; }
+  .agent-card .desc{ font-size:12px; color: var(--ink-secondary); line-height:1.55; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .agent-card .skills{ display:flex; flex-wrap:wrap; gap:6px; }
+  .agent-card .foot{ display:flex; align-items:center; justify-content:space-between; margin-top:auto; padding-top:12px; border-top:1px solid var(--border); font-size:11.5px; color: var(--ink-tertiary); }
+  .agent-card .foot .metric{ display:flex; align-items:center; gap:4px; font-variant-numeric: tabular-nums; }
+  .agent-card .foot .metric .icon{ width:12.5px; height:12.5px; }
+
+  .create-agent-card{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:20px; border:1.5px dashed var(--border-strong); border-radius: var(--radius-l); cursor:pointer; color: var(--ink-tertiary); min-height:190px; transition: border-color .18s, color .18s, background .18s; }
+  .create-agent-card:hover{ border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .create-agent-card .plus-circle{ width:40px; height:40px; border-radius:50%; background: var(--neutral-soft); display:flex; align-items:center; justify-content:center; }
+  .create-agent-card:hover .plus-circle{ background: var(--accent-soft-strong); }
+
+  /* ---- 团队卡片 ---- */
+  .team-owner{ display:flex; align-items:center; gap:8px; padding:9px 11px; border-radius:11px; background: var(--purple-soft); }
+  .team-owner b{ font-size:12.5px; font-weight:650; }
+  .team-owner .hint{ margin:0; font-size:11px; }
+  .team-owner .avatar{ width:24px; height:24px; font-size:12px; border-radius:7px; }
+  .team-members{ display:flex; flex-wrap:wrap; gap:6px; }
+  .team-member-chip{ display:inline-flex; align-items:center; gap:5px; padding:2px 8px 2px 3px; border-radius: var(--radius-pill); background: var(--neutral-soft); font-size:11.5px; }
+  .team-member-chip .avatar{ width:20px; height:20px; font-size:10px; border-radius:5px; }
+
+  /* ---- 团队模式条：任务详情顶部说明 + 任务卡上的小标签 ---- */
+  .team-mode-banner{ display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:12px; background: var(--purple-soft); margin-bottom:16px; }
+  .team-mode-banner .icon{ color: var(--purple); flex-shrink:0; }
+  .team-mode-banner b{ color: var(--purple); font-weight:650; }
+  .team-mode-tag{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:650; padding:1.5px 8px; border-radius: var(--radius-pill); background: var(--purple-soft); color: var(--purple); }
+  .team-mode-tag .icon{ width:11px; height:11px; }
+  .assign-inline{ margin-top:6px; display:flex; align-items:center; gap:6px; font-size:11.5px; }
+  .assign-inline select{ padding:3px 8px; border-radius:8px; background: var(--surface-sunken); border:1px solid var(--border); font: inherit; color: var(--ink); }
+
+  /* ============ Task board ============ */
+  .board{ display:grid; grid-template-columns: repeat(5, minmax(198px,1fr)); gap:14px; overflow-x:auto; padding-bottom:10px; }
+  @media (max-width: 1400px){ .board{ grid-auto-columns: 78%; grid-auto-flow:column; grid-template-columns:none; } }
+  @media (max-width: 620px){ .board{ grid-auto-columns: 88%; } }
+  .board-col{ display:flex; flex-direction:column; gap:12px; min-width:0; }
+  .board-col-head{ display:flex; align-items:center; gap:8px; padding:2px 4px; }
+  .board-col-head .dot{ width:8px; height:8px; border-radius:50%; }
+  .board-col-head b{ font-size:12.5px; font-weight:650; }
+  .board-col-head .n{ margin-left:auto; font-size:11px; color: var(--ink-tertiary); font-variant-numeric: tabular-nums; }
+  .board-col-body{ display:flex; flex-direction:column; gap:10px; min-height:60px; }
+
+  .task-card{ padding:14px 15px; cursor:pointer; display:flex; flex-direction:column; gap:10px; transition: transform .16s var(--ease), box-shadow .16s var(--ease); }
+  .task-card:hover{ transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .task-card .title{ font-size:13px; font-weight:610; line-height:1.4; text-wrap:pretty; }
+  .task-card .tags{ display:flex; flex-wrap:wrap; gap:5px; }
+  .task-card .assignees{ display:flex; align-items:center; }
+  .task-card .assignees .avatar{ width:24px; height:24px; font-size:12px; border-radius:7px; margin-left:-6px; border:2px solid var(--surface); }
+  .task-card .assignees .avatar:first-child{ margin-left:0; }
+  .task-card .foot{ display:flex; align-items:center; justify-content:space-between; }
+  .task-card .foot .due{ font-size:11px; color: var(--ink-tertiary); display:flex; align-items:center; gap:4px; }
+  .task-card .foot .due .icon{ width:12px; height:12px; }
+
+  .match-banner{ display:flex; align-items:center; gap:8px; background: var(--accent-soft); color: var(--accent); border-radius:10px; padding:7px 10px; font-size:11.5px; font-weight:600; font-family:inherit; width:100%; border:none; cursor:pointer; }
+  .match-banner .icon{ width:13px; height:13px; flex-shrink:0; }
+  /* 认领意愿的强度直接烤进 banner 的底色渐变里，不用另起一条重复的进度条 */
+  .match-banner.intent-fill{ background: linear-gradient(90deg, var(--accent-soft-strong) 0%, var(--accent-soft-strong) var(--intent), var(--accent-soft) var(--intent), var(--accent-soft) 100%); }
+  .match-expand-icon{ margin-left:auto; display:flex; transition: transform .18s var(--ease); }
+  .match-expand-icon .icon{ width:13px; height:13px; }
+  .match-banner.open .match-expand-icon{ transform: rotate(180deg); }
+  .match-detail{ display:flex; flex-direction:column; gap:8px; padding:2px 1px 2px; }
+  .match-candidate-row{ display:flex; flex-direction:column; gap:7px; padding:9px 10px; border-radius:11px; background: var(--surface-sunken); }
+  .match-candidate-row .who{ display:flex; align-items:center; gap:8px; }
+  .match-candidate-row .who .avatar{ width:26px; height:26px; font-size:13px; border-radius:7px; }
+  .match-candidate-row .who b{ font-size:12px; font-weight:620; display:block; }
+  .match-candidate-row .who span{ font-size:10.5px; color: var(--ink-tertiary); }
+  .contract-chips{ display:flex; flex-wrap:wrap; gap:5px; }
+  .contract-chip{ font-size:10px; font-weight:560; padding:2px 8px; border-radius: var(--radius-pill); background: var(--neutral-soft); color: var(--ink-tertiary); display:inline-flex; align-items:center; gap:3px; }
+  .contract-chip.hit{ background: var(--success-soft); color: var(--success); }
+  .contract-chip .icon{ width:9px; height:9px; }
+  .claim-btn{ width:100%; }
+  .claim-btn.claiming{ background: var(--success); }
+  .claim-pulse{ position:relative; overflow:hidden; }
+  @keyframes claimFlash{ 0%{ box-shadow: 0 0 0 0 var(--accent-soft-strong);} 100%{ box-shadow: 0 0 0 10px rgba(0,113,227,0); } }
+  .claim-flash{ animation: claimFlash .7s var(--ease); }
+
+  /* ============ Task detail ============ */
+  .role-tabs{ display:inline-flex; gap:3px; background:var(--neutral-soft); padding:3px; border-radius:11px; }
+  .role-tab{ border:none; background:transparent; padding:7px 15px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--ink-secondary); cursor:pointer; font-family:inherit; }
+  .role-tab.active{ background:var(--surface); color:var(--accent); box-shadow:var(--shadow-sm); }
+
+  .link-back{ display:inline-flex; align-items:center; gap:5px; border:none; background:transparent; color: var(--ink-tertiary); font-size:12.5px; font-weight:600; cursor:pointer; padding:6px 4px; margin-bottom:14px; font-family:inherit; }
+  .link-back:hover{ color: var(--accent); }
+  .link-back .icon{ width:14px; height:14px; transform: rotate(180deg); }
+  .detail-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:22px; flex-wrap:wrap; }
+  .detail-head h2{ font-size:22px; font-weight:660; letter-spacing:-0.015em; text-wrap:balance; margin-bottom:8px; }
+  .detail-head .meta-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .progress-ring-wrap{ display:flex; align-items:center; gap:10px; }
+  .progress-ring-wrap b{ font-size:20px; font-variant-numeric: tabular-nums; }
+  .progress-ring-wrap span{ font-size:11px; color: var(--ink-tertiary); display:block; }
+
+  .detail-grid{ display:grid; grid-template-columns: 1.15fr 1fr; gap:20px; align-items:start; }
+  @media (max-width: 1020px){ .detail-grid{ grid-template-columns:1fr; } }
+
+  .panel{ padding:20px 22px; margin-bottom:20px; }
+  .panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .panel-head h3{ font-size:14.5px; font-weight:640; display:flex; align-items:center; gap:7px; }
+  .panel-head h3 .icon{ width:16px; height:16px; color: var(--accent); }
+
+  .plan-step{ display:flex; gap:12px; padding: 11px 2px; }
+  .plan-step .check{ width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+  .plan-step .check .icon{ width:13px; height:13px; }
+  .plan-step.done .check{ background: var(--success); color:#fff; }
+  .plan-step.active .check{ background: var(--accent-soft-strong); color: var(--accent); border:2px solid var(--accent); }
+  .plan-step.pending .check{ background: var(--neutral-soft); color: var(--ink-tertiary); border:2px solid var(--border-strong); }
+  .plan-step .body{ flex:1; }
+  .plan-step .body .title{ font-size:13px; font-weight:600; }
+  .plan-step.done .body .title{ color: var(--ink-secondary); text-decoration: line-through; text-decoration-color: var(--border-strong); text-decoration-thickness: 1.5px; }
+  .plan-step .body .who{ display:flex; align-items:center; gap:6px; margin-top:5px; font-size:11.5px; color: var(--ink-tertiary); }
+  .plan-step .body .who .avatar{ width:18px; height:18px; font-size:10px; border-radius:5px; }
+  .plan-step .connector{ position:relative; }
+  .plan-step:not(:last-child) .check{ position:relative; }
+  .plan-step:not(:last-child) .check::after{ content:""; position:absolute; top:24px; left:50%; width:1.5px; height:calc(100% + 2px); background: var(--border); transform: translateX(-50%); }
+
+  .log-feed{ display:flex; flex-direction:column; gap:2px; max-height: 420px; overflow-y:auto; padding-right:4px; }
+  .log-item{ display:flex; gap:10px; padding:10px 2px; }
+  .log-item .avatar{ width:28px; height:28px; font-size:14px; border-radius:8px; flex-shrink:0; }
+  .log-item .bubble{ flex:1; background: var(--surface-sunken); border-radius: 12px; padding:9px 12px; }
+  .log-item .bubble .who{ font-size:12px; font-weight:650; margin-bottom:2px; }
+  .log-item .bubble .who .role-tag{ font-weight:500; color: var(--ink-tertiary); margin-left:5px; }
+  .log-item .bubble .text{ font-size:12.5px; color: var(--ink-secondary); line-height:1.55; }
+  .log-item .bubble .time{ font-size:10.5px; color: var(--ink-tertiary); margin-top:5px; }
+  .log-item .bubble .doc-chip{ display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:6px 10px; border-radius:9px; background: var(--surface); border:1px solid var(--border); font-size:11.5px; cursor:pointer; }
+  .log-item .bubble .doc-chip:hover{ border-color: var(--accent); color: var(--accent); }
+  .log-item .bubble .doc-chip .icon{ width:13px; height:13px; }
+  .log-item.system .bubble{ background:transparent; text-align:center; padding: 4px; }
+  .log-item.system .bubble .text{ font-size:11px; color: var(--ink-tertiary); }
+  .typing-dots{ display:inline-flex; gap:3px; align-items:center; padding: 4px 0; }
+  .typing-dots span{ width:5px; height:5px; border-radius:50%; background: var(--ink-tertiary); animation: typingBounce 1.1s infinite ease-in-out; }
+  .typing-dots span:nth-child(2){ animation-delay:.15s; } .typing-dots span:nth-child(3){ animation-delay:.3s; }
+  @keyframes typingBounce{ 0%,60%,100%{ transform: translateY(0); opacity:.5; } 30%{ transform: translateY(-3px); opacity:1; } }
+
+  .doc-preview-card{ display:flex; gap:12px; padding:13px; border:1px solid var(--border); border-radius:14px; cursor:pointer; transition: border-color .15s, background .15s; }
+  .doc-preview-card:hover{ border-color: var(--accent); background: var(--accent-soft); }
+  .doc-preview-card .thumb{ width:42px; height:52px; border-radius:6px; background: var(--surface-sunken); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .doc-preview-card .thumb .icon{ width:20px; height:20px; }
+  .doc-preview-card .info b{ font-size:12.5px; display:block; text-wrap:pretty; }
+  .doc-preview-card .info span{ font-size:11px; color: var(--ink-tertiary); }
+
+  .team-roster{ display:flex; flex-direction:column; gap:10px; }
+  .roster-item{ display:flex; align-items:center; gap:10px; }
+  .roster-item .avatar{ width:34px; height:34px; font-size:16px; border-radius:10px; }
+  .roster-item .info{ flex:1; min-width:0; }
+  .roster-item .info b{ font-size:12.5px; display:block; }
+  .roster-item .info span{ font-size:11px; color: var(--ink-tertiary); }
+
+  /* ============ Documents library ============ */
+  .doc-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap:16px; }
+  .doc-card{ padding:18px; cursor:pointer; transition: transform .16s var(--ease), box-shadow .16s var(--ease); }
+  .doc-card:hover{ transform: translateY(-3px); box-shadow: var(--shadow-md); }
+  .doc-card .top{ display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; }
+  .doc-card .filetype{ width:40px; height:48px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .doc-card .filetype .icon{ width:19px; height:19px; }
+  .doc-card .title{ font-size:13px; font-weight:620; line-height:1.4; text-wrap:pretty; }
+  .doc-card .task-src{ font-size:11px; color: var(--ink-tertiary); margin-top:3px; }
+  .doc-card .foot{ display:flex; align-items:center; justify-content:space-between; padding-top:12px; border-top:1px solid var(--border); }
+  .doc-card .author{ display:flex; align-items:center; gap:6px; font-size:11.5px; color: var(--ink-secondary); }
+  .doc-card .author .avatar{ width:20px; height:20px; font-size:11px; border-radius:6px; }
+  .doc-card .date{ font-size:11px; color: var(--ink-tertiary); }
+
+  .doc-project-group{ margin-bottom:28px; }
+  .doc-project-group:last-child{ margin-bottom:0; }
+  .doc-project-head{ display:flex; align-items:center; gap:10px; margin-bottom:14px; background:transparent; border:none; padding:4px 2px; cursor:pointer; font-family:inherit; width:100%; text-align:left; }
+  .doc-project-head b{ font-size:14px; font-weight:640; color:var(--ink); text-wrap:pretty; }
+  .doc-project-head:hover b{ color:var(--accent); }
+  .doc-project-count{ margin-left:auto; font-size:11.5px; color:var(--ink-tertiary); display:flex; align-items:center; gap:2px; flex-shrink:0; white-space:nowrap; }
+  .doc-project-count .icon{ width:12px; height:12px; }
+
+  /* ============ Modal / Drawer ============ */
+  .overlay{ position:fixed; inset:0; background: rgba(0,0,0,0.42); backdrop-filter: blur(6px); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px; opacity:0; pointer-events:none; transition: opacity .22s var(--ease); }
+  .overlay.open{ opacity:1; pointer-events:auto; }
+  .modal{ background: var(--surface); border-radius: var(--radius-l); box-shadow: var(--shadow-lg); width:100%; max-width:560px; max-height:88vh; overflow-y:auto; transform: translateY(14px) scale(.97); opacity:0; transition: transform .28s var(--ease), opacity .24s var(--ease); border: 1px solid var(--border); }
+  .overlay.open .modal{ transform:none; opacity:1; }
+  .modal.wide{ max-width: 720px; }
+  .modal-head{ position:sticky; top:0; background: var(--surface-translucent); backdrop-filter: blur(20px); display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border-bottom:1px solid var(--border); z-index:2; }
+  .modal-head h3{ font-size:16px; font-weight:650; }
+  .modal-body{ padding:22px; }
+  .modal-foot{ display:flex; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid var(--border); position:sticky; bottom:0; background: var(--surface-translucent); backdrop-filter: blur(20px); }
+  .modal-foot .icon-prev{ transform: rotate(180deg); }
+
+  /* ---- Agent 创建/编辑向导 ---- */
+  .wizard-rail{ display:flex; align-items:center; padding:16px 22px 4px; gap:0; overflow-x:auto; }
+  .wizard-step{ display:flex; align-items:center; gap:7px; flex-shrink:0; color: var(--ink-tertiary); }
+  .wizard-step .dot{ width:22px; height:22px; border-radius:50%; background: var(--neutral-soft); display:flex; align-items:center; justify-content:center; font-size:10.5px; font-weight:700; flex-shrink:0; }
+  .wizard-step .dot .icon{ width:11px; height:11px; }
+  .wizard-step span{ font-size:11.5px; font-weight:600; white-space:nowrap; }
+  .wizard-step.active{ color: var(--ink); }
+  .wizard-step.active .dot{ background: var(--accent); color:#fff; }
+  .wizard-step.done .dot{ background: var(--success); color:#fff; }
+  .wizard-step.done span{ color: var(--ink-secondary); }
+  .wizard-line{ width:20px; height:1.5px; background: var(--border-strong); margin:0 6px; flex-shrink:0; }
+  .review-block{ margin-bottom:16px; }
+  .review-block h4{ font-size:11px; font-weight:700; color: var(--ink-tertiary); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; }
+  .review-row{ display:flex; gap:10px; padding:6px 0; font-size:12.5px; border-bottom:1px solid var(--border); }
+  .review-row:last-child{ border-bottom:none; }
+  .review-row .k{ width:110px; flex-shrink:0; color: var(--ink-tertiary); }
+  .review-row .v{ color: var(--ink); flex:1; }
+
+  .emoji-grid{ display:grid; grid-template-columns: repeat(8, 1fr); gap:6px; }
+  .emoji-opt{ aspect-ratio:1; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; background: var(--neutral-soft); border:2px solid transparent; }
+  .emoji-opt.selected{ border-color: var(--accent); background: var(--accent-soft); }
+
+  .drawer-agent-head{ display:flex; gap:14px; align-items:center; margin-bottom:18px; }
+  .drawer-agent-head .avatar{ width:56px; height:56px; font-size:26px; border-radius:15px; }
+  .drawer-agent-head h3{ font-size:18px; font-weight:650; }
+  .drawer-agent-head .role{ font-size:12.5px; color: var(--ink-tertiary); margin-top:2px; }
+  .stat-row{ display:flex; gap:10px; margin-bottom:20px; }
+  .stat-row .mini-stat{ flex:1; background: var(--surface-sunken); border-radius:12px; padding:12px; text-align:center; }
+  .stat-row .mini-stat b{ font-size:18px; font-variant-numeric: tabular-nums; display:block; }
+  .stat-row .mini-stat span{ font-size:10.5px; color: var(--ink-tertiary); }
+
+  .toast-stack{ position:fixed; bottom:24px; right:24px; z-index:200; display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
+  .toast{ display:flex; align-items:center; gap:10px; background: var(--surface); border:1px solid var(--border); box-shadow: var(--shadow-lg); border-radius:14px; padding:12px 16px; font-size:12.5px; font-weight:560; transform: translateX(20px); opacity:0; animation: toastIn .3s var(--ease) forwards; max-width:320px; }
+  .toast .icon-badge{ width:26px; height:26px; border-radius:50%; background: var(--success-soft); color: var(--success); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .toast .icon-badge .icon{ width:14px; height:14px; }
+  @keyframes toastIn{ to{ transform:none; opacity:1; } }
+  @keyframes toastOut{ to{ transform: translateX(20px); opacity:0; } }
+
+  .empty-state{ display:flex; flex-direction:column; align-items:center; justify-content:center; padding:50px 20px; text-align:center; color: var(--ink-tertiary); gap:10px; }
+  .empty-state .icon{ width:32px; height:32px; opacity:.5; }
+  .empty-state b{ font-size:13px; color: var(--ink-secondary); }
+  .empty-state span{ font-size:12px; }
+
+  /* Responsive */
+  .menu-toggle{ display:none; background:var(--neutral-soft); border:none; width:34px; height:34px; border-radius:9px; align-items:center; justify-content:center; cursor:pointer; color:var(--ink); flex-shrink:0; }
+  .sidebar-scrim{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.38); z-index:39; opacity:0; pointer-events:none; transition: opacity .25s var(--ease); }
+  .sidebar-scrim.open{ opacity:1; pointer-events:auto; }
+  @media (max-width: 880px){
+    .sidebar{ position:fixed; left:-260px; box-shadow: var(--shadow-lg); transition: left .25s var(--ease); z-index:41; }
+    .sidebar.open{ left:0; }
+    .sidebar-scrim{ display:block; }
+    .view{ padding: 20px 16px 50px; }
+    .topbar{ padding:14px 16px; flex-wrap:wrap; row-gap:10px; }
+    .topbar-title-block{ flex:1 1 auto; min-width:0; }
+    .topbar-title-block h1{ font-size:19px; }
+    .topbar-title-block .sub{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .topbar-actions{ flex:1 1 100%; margin-left:0; }
+    .topbar-actions .btn{ flex:1; }
+    .search-box{ display:none; }
+    .menu-toggle{ display:flex !important; }
+    .stat-grid{ grid-template-columns: repeat(2,1fr); }
+  }
+  /* 真机手机（≤640）：卡片单列 + 模态近全屏 + 表单单列 + 减小外边距 */
+  @media (max-width: 640px){
+    :root{ --radius-l: 14px; }
+    .view{ padding: 16px 14px 60px; }
+    .agent-grid{ grid-template-columns: 1fr; gap:12px; }
+    .stat-grid{ grid-template-columns: 1fr 1fr; gap:10px; }
+    .create-agent-card{ min-height:140px; padding:18px; }
+    .two-col{ gap:14px; }
+    .detail-grid{ gap:14px; }
+    .field-row{ flex-direction:column; gap:10px; }
+    .field-row > .field{ margin-bottom:0; }
+    .radio-card-group{ grid-template-columns:1fr !important; }
+    .board-col{ min-width:0; }
+    .overlay{ padding:0; align-items:flex-end; }
+    .modal{ max-width:100%; width:100%; max-height:94vh; height:94vh; border-radius: 18px 18px 0 0; }
+    .modal.wide{ max-width:100%; }
+    .modal-head{ padding:14px 16px; }
+    .modal-head h3{ font-size:15.5px; }
+    .modal-body{ padding:16px; }
+    .modal-foot{ padding:12px 16px; flex-wrap:wrap; row-gap:8px; }
+    .modal-foot .btn{ flex:1 1 auto; min-width:44%; }
+    .wizard-rail{ padding:12px 16px 2px; gap:0; }
+    .wizard-step span{ display:none; }
+    .wizard-step.active span{ display:inline; }
+    .wizard-line{ width:12px; margin:0 4px; }
+    /* 触控目标 ≥44px */
+    .nav-item, .btn, .filter-chip, .skill-tab{ min-height:40px; }
+    .btn-sm{ min-height:34px; }
+    /* 顶栏在窄屏只留一个主按钮，其他隐藏 */
+    .topbar-actions .btn.mobile-hide{ display:none; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: .001s !important; transition-duration: .001s !important; }
+  }
+
+  /* Fallback for browsers/renderers without backdrop-filter support: keep translucent
+     surfaces fully legible with a solid background instead of a see-through one. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))){
+    .sidebar, .topbar, .modal-head, .modal-foot{ background: var(--surface) !important; }
+    .overlay{ background: rgba(0,0,0,0.56) !important; }
+  }
+</style>
+
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">令</div>
+      <div class="brand-text"><b>不令</b><span>其身正，不令而行</span></div>
+    </div>
+    <button class="mechanism-entry" id="btn-mechanism" type="button">{{ICON_LAYERS}}<span>协作机制说明</span></button>
+
+    <div class="nav-group-label">工作区</div>
+    <button class="nav-item active" data-view="overview">{{ICON_HOME}}<span>工作台概览</span></button>
+    <button class="nav-item" data-view="agents">{{ICON_PERSON}}<span>Agent 中心</span><span class="count" id="nav-count-agents">6</span></button>
+    <button class="nav-item" data-view="teams">{{ICON_USERS}}<span>团队</span><span class="count" id="nav-count-teams">2</span></button>
+    <button class="nav-item" data-view="tasks">{{ICON_TRAY}}<span>任务</span><span class="count" id="nav-count-tasks">6</span></button>
+    <button class="nav-item" data-view="publish-task">{{ICON_PLUS}}<span>发布任务</span></button>
+    <button class="nav-item" data-view="docs">{{ICON_DOC}}<span>文档产出库</span></button>
+
+    <div class="nav-group-label">配置</div>
+    <button class="nav-item" data-view="providers">{{ICON_MODEL}}<span>模型接入</span><span class="count" id="nav-count-providers">3</span></button>
+
+    <div class="sidebar-foot">
+    </div>
+    <div>
+      <div class="user-chip">
+        <div class="avatar round">🪶</div>
+        <div><b>Todaviata</b><br><span>工作区管理员</span></div>
+      </div>
+      <div class="theme-toggle" id="theme-toggle">
+        <button data-theme-opt="light">浅色</button>
+        <button data-theme-opt="dark">深色</button>
+        <button data-theme-opt="system" class="active">系统<span class="theme-resolved" id="theme-resolved"></span></button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="sidebar-scrim" id="sidebar-scrim"></div>
+
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-toggle" id="menu-toggle">{{ICON_MENU}}</button>
+      <div class="topbar-title-block">
+        <h1 id="topbar-title">工作台概览</h1>
+        <div class="sub" id="topbar-sub">今天是 2026年8月24日 · 6 个 Agent 在线协作中</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="search-box">{{ICON_SEARCH}}<input placeholder="搜索 Agent、任务或文档…" id="global-search"></div>
+      </div>
+    </div>
+
+    <div id="view-root"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal-container"></div>
+</div>
+
+<div class="toast-stack" id="toast-stack"></div>
+
+<script>
+/* ============================================================
+   ICONS
+============================================================ */
+const ICONS = {
+  home: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-6h2v6h4a1 1 0 0 0 1-1v-9"/></svg>',
+  person: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/></svg>',
+  tray: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 13.5 6.5 5h11L20 13.5"/><path d="M4 13.5h4.2c.3 1.4 1.5 2.4 3.1 2.4h1.4c1.6 0 2.8-1 3.1-2.4H20V18a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 18z"/></svg>',
+  flow: '<svg class="icon" viewBox="0 0 24 24"><circle cx="6" cy="6.5" r="2.4"/><circle cx="6" cy="17.5" r="2.4"/><circle cx="18" cy="12" r="2.4"/><path d="M8.1 7.3 15.9 11M8.1 16.7 15.9 13"/></svg>',
+  doc: '<svg class="icon" viewBox="0 0 24 24"><path d="M7 3.5h7L19 8v12.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h5"/><path d="M9 13h6M9 16.3h6M9 9.7h2.2"/></svg>',
+  menu: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg>',
+  search: '<svg class="icon" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m19 19-4.3-4.3"/></svg>',
+  plus: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  close: '<svg class="icon" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>',
+  chevronRight: '<svg class="icon" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg>',
+  chevronDown: '<svg class="icon" viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg>',
+  sparkle: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3.5 13.6 9l5.4 1.6-5.4 1.6L12 17.7l-1.6-5.5L5 10.6 10.4 9Z"/><path d="M19 15.5 19.7 18l2.3.8-2.3.8-.7 2.4-.7-2.4-2.3-.8 2.3-.8Z"/></svg>',
+  clock: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 2"/></svg>',
+  calendar: '<svg class="icon" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2.2"/><path d="M4 9.8h16M8.3 3.5v3.6M15.7 3.5v3.6"/></svg>',
+  check: '<svg class="icon" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+  send: '<svg class="icon" viewBox="0 0 24 24"><path d="M4.5 11.8 19.5 5l-5.4 15-3.2-6.9z"/><path d="M10.9 13.1 19.5 5"/></svg>',
+  trash: '<svg class="icon" viewBox="0 0 24 24"><path d="M5.5 7.5h13M9.5 7.5V5.8a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V7.5M17.5 7.5 17 19a1.6 1.6 0 0 1-1.6 1.5H8.6A1.6 1.6 0 0 1 7 19L6.5 7.5"/></svg>',
+  pencil: '<svg class="icon" viewBox="0 0 24 24"><path d="M14.3 4.8 19 9.5 8 20.5H3.5V16Z"/><path d="m12.8 6.3 4.7 4.7"/></svg>',
+  filter: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 6h16M7.5 12h9M10.5 18h3"/></svg>',
+  download: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 4v11.5M7.5 11.5 12 16l4.5-4.5"/><path d="M5 19.5h14"/></svg>',
+  expand: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 4.5H4.5V9M15 4.5h4.5V9M9 19.5H4.5V15M15 19.5h4.5V15"/></svg>',
+  web: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M3.8 12h16.4M12 3.8c2.4 2.3 3.6 5.1 3.6 8.2s-1.2 5.9-3.6 8.2c-2.4-2.3-3.6-5.1-3.6-8.2S9.6 6.1 12 3.8Z"/></svg>',
+  code: '<svg class="icon" viewBox="0 0 24 24"><path d="m9 8-4.5 4L9 16M15 8l4.5 4L15 16"/></svg>',
+  chart: '<svg class="icon" viewBox="0 0 24 24"><path d="M4.5 20V9M12 20V4M19.5 20v-7"/><path d="M3 20h18"/></svg>',
+  image: '<svg class="icon" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="m5 18 5-5 3.5 3.5L18 12l2 2.5"/></svg>',
+  puzzle: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 4.5h3.2a1.4 1.4 0 0 1 1.3 1.9 1.4 1.4 0 0 0 1.9 1.8 1.4 1.4 0 0 1 1.9 1.3V13a1.4 1.4 0 0 1-1.9 1.3 1.4 1.4 0 0 0-1.9 1.8 1.4 1.4 0 0 1-1.3 1.9H9V15a1.4 1.4 0 0 0-1.8-1.9 1.4 1.4 0 0 1-1.9-1.3V9a1.4 1.4 0 0 1 1.9-1.3A1.4 1.4 0 0 0 9 5.8Z"/></svg>',
+  bell: '<svg class="icon" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.6 2.2H4.4Z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>',
+  users: '<svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9.5" r="2.4"/><path d="M3.5 19c.8-3.3 3-5 5.5-5s4.7 1.7 5.5 5"/><path d="M15 14.5c2 .2 3.5 1.7 4.1 4.5"/></svg>',
+  shield: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3.5 19 6v6c0 4.5-3 7.5-7 8.5-4-1-7-4-7-8.5V6Z"/><path d="m9 12 2 2 4-4"/></svg>',
+  layers: '<svg class="icon" viewBox="0 0 24 24"><path d="m12 3.5 8.5 4.4L12 12.3 3.5 7.9Z"/><path d="m3.5 12 8.5 4.4 8.5-4.4M3.5 16.1 12 20.5l8.5-4.4"/></svg>',
+  model: '<svg class="icon" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 4v3M14 4v3M10 17v3M14 17v3M4 10h3M4 14h3M17 10h3M17 14h3"/></svg>',
+  plug: '<svg class="icon" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/></svg>',
+};
+function ic(name){ return ICONS[name] || ''; }
+
+/* replace placeholder tokens in initial DOM */
+document.body.innerHTML = document.body.innerHTML
+  .replaceAll('{{ICON_HOME}}', ic('home'))
+  .replaceAll('{{ICON_PERSON}}', ic('person'))
+  .replaceAll('{{ICON_TRAY}}', ic('tray'))
+  .replaceAll('{{ICON_FLOW}}', ic('flow'))
+  .replaceAll('{{ICON_DOC}}', ic('doc'))
+  .replaceAll('{{ICON_MENU}}', ic('menu'))
+  .replaceAll('{{ICON_SEARCH}}', ic('search'))
+  .replaceAll('{{ICON_PLUS}}', ic('plus'))
+  .replaceAll('{{ICON_LAYERS}}', ic('layers'))
+  .replaceAll('{{ICON_MODEL}}', ic('model'))
+  .replaceAll('{{ICON_USERS}}', ic('users'));
+</script>
+
+<script>
+/* ============================================================
+   DATA MODEL (mock)
+============================================================ */
+/* 统一的 Skill 挂载契约：无论来源是平台预置、本机网关发现、还是技能市场安装/上传/链接安装，
+   每个条目都遵循同一个形状 {name, icon, desc, permission, origin, publisher?} ——
+   Agent 只认这个契约，不关心底层实现（依赖倒置）。"来源"只是一个可见的溯源标签，
+   不代表特权：已安装的条目一律平等，都能被移除，没有谁是不可删除的"内置"。 */
+const MODULE_CATALOG = {
+  web:      { name:'网页检索', icon:'web',    desc:'实时搜索与网页信息抓取', origin:'builtin', permission:'仅出站只读请求' },
+  code:     { name:'代码执行', icon:'code',   desc:'运行、调试与静态分析代码', origin:'builtin', permission:'沙箱内执行，无网络访问' },
+  doc:      { name:'文档生成', icon:'doc',    desc:'生成结构化文档与报告', origin:'builtin', permission:'仅平台内文档读写' },
+  chart:    { name:'数据分析', icon:'chart',  desc:'数据建模、统计与可视化', origin:'builtin', permission:'仅平台内数据读取' },
+  image:    { name:'图像生成', icon:'image',  desc:'生成与编辑视觉素材', origin:'builtin', permission:'仅平台内素材读写' },
+  calendar: { name:'日程管理', icon:'calendar',desc:'排期、提醒与进度跟踪', origin:'builtin', permission:'仅平台内日程读写' },
+  shield:   { name:'安全扫描', icon:'shield', desc:'漏洞检测与合规校验', origin:'builtin', permission:'仅平台内代码只读' },
+  puzzle:   { name:'任务编排', icon:'puzzle', desc:'拆解目标并编排协作链路', origin:'builtin', permission:'仅平台内任务读写' },
+};
+
+/* 本机网关：优先"配对本地网关（apps/local-gateway）"做真实扫描；未配对时回退到示意数据。
+   - 配对信息（Base URL + Token）持久化在 localStorage 的 'buling-gateway'；
+   - 扫描到的 AI 厂商 CLI 通过 registry 分类展示（vendor / 版本 / 安装路径 / 建议安装命令）；
+   - **只 discover，不 execute**：把 CLI 挂载到 Agent 后的实际执行走服务端 execution 沙箱，
+     不是这个网关自己 spawn 用户代码（对应 R2 · execution 模块）。 */
+let localGateway = {
+  paired: false,       // 是否已经配对成功
+  baseUrl: 'http://127.0.0.1:17817',
+  token: '',
+  connecting: false,
+  error: null,         // 最近一次错误信息（供 UI 展示）
+  scanning: false,
+  scannedAt: null,     // 上次扫描时间
+  items: [],           // DiscoveredCli[]（真扫描结果）
+  platform: null,      // 网关自报平台
+};
+try {
+  const saved = localStorage.getItem('buling-gateway');
+  if (saved){ const s = JSON.parse(saved); localGateway.baseUrl = s.baseUrl || localGateway.baseUrl; localGateway.token = s.token || ''; }
+} catch(e){}
+
+/* 未配对时的示意数据：让用户能在没跑网关时也能看清"接上后会长什么样"。 */
+const LOCAL_CANDIDATES_MOCK = [
+  { id:'anthropic-claude-code', name:'Claude Code', vendor:'Anthropic', desc:'Anthropic 官方终端 Coding Agent', suggestInstall:'npm i -g @anthropic-ai/claude-code' },
+  { id:'openai-codex-cli',      name:'OpenAI Codex CLI', vendor:'OpenAI', desc:'OpenAI 官方终端 Coding Agent', suggestInstall:'npm i -g @openai/codex' },
+  { id:'google-gemini-cli',     name:'Gemini CLI', vendor:'Google', desc:'Google 官方 Gemini 终端 Agent', suggestInstall:'npm i -g @google/gemini-cli' },
+  { id:'ollama',                name:'Ollama', vendor:'Ollama', desc:'本机运行开源大模型', suggestInstall:'brew install ollama' },
+];
+
+/* 技能市场：未安装时只在市场列表出现，不会污染任何 Agent 的挂载面板；安装（含"粘贴链接安装"
+   和"上传技能包"两条路径）后把它搬进统一的 MODULE_CATALOG，此后与其他来源一视同仁地可挂载/可删除。 */
+const MARKET_CATALOG = [
+  { id:'market-notion', name:'Notion 知识库检索', icon:'doc',   desc:'检索团队 Notion 知识库并引用原文', origin:'market', permission:'只读指定 Notion 空间', publisher:'内部团队 · 已验证', installs:128 },
+  { id:'market-figma',  name:'Figma 设计稿读取',  icon:'image', desc:'读取指定 Figma 文件的图层与标注', origin:'market', permission:'只读指定 Figma 文件', publisher:'第三方 · 已验证', installs:64 },
+  { id:'market-slack',  name:'Slack 播报',        icon:'bell',  desc:'把关键协作节点播报到指定频道', origin:'market', permission:'仅发送消息 · 无法读取历史', publisher:'第三方 · 未验证', installs:21 },
+];
+
+/* trace：协作痕迹机制的痕迹权重——近期确实做过同类任务就 boost，很久没碰就 decay，
+   不是入职时填的静态技能标签，而是系统自己沉淀出的"谁最近真的擅长这个"。
+   recentRejects：容错用的隔离计数——多次被打回会临时降权，产出回升后自动恢复，不是永久拉黑。 */
+let AGENTS = [
+  { id:'guanhai', name:'观海', avatar:'🧭', role:'调研分析师', status:'working',
+    bio:'专注于行业与竞品情报收集，擅长把海量公开信息压缩成结构化结论，输出前会交叉验证至少三个信源。',
+    skills:['市场调研','竞品分析','数据整理'], modules:['web','doc','chart'], collabPref:'auto',
+    model:'sonnet', effort:'medium', permissions:{ confirmCode:false, confirmExternal:true, budget:null },
+    stats:{ tasksDone:23, avgScore:4.8, collabs:15 },
+    trace:{ delta:6, label:'近期同类任务完成频繁' }, recentRejects:0 },
+  { id:'shiguang', name:'拾光', avatar:'✍️', role:'内容策划师', status:'working',
+    bio:'擅长把产品卖点转译成有温度的文字，注重开头三秒的钩子设计和整体节奏感。',
+    skills:['文案写作','内容策划','SEO优化'], modules:['doc','web'], collabPref:'auto',
+    model:'sonnet', effort:'medium', permissions:{ confirmCode:false, confirmExternal:true, budget:null },
+    stats:{ tasksDone:31, avgScore:4.9, collabs:22 },
+    trace:{ delta:4, label:'近期活跃' }, recentRejects:0 },
+  { id:'mingjing', name:'明镜', avatar:'🔍', role:'代码审查官', status:'idle',
+    bio:'以严谨著称，每一处改动都要过安全、架构、可维护性三道核查才会放行。',
+    skills:['代码审查','安全扫描','架构建议'], modules:['code','shield'], collabPref:'manual',
+    model:'opus', effort:'high', permissions:{ confirmCode:true, confirmExternal:true, budget:null },
+    stats:{ tasksDone:18, avgScore:4.7, collabs:9 },
+    trace:null, recentRejects:0 },
+  { id:'zhiyun', name:'织云', avatar:'🎨', role:'视觉设计师', status:'offline',
+    bio:'相信好设计是克制的，偏爱留白与精确的比例节奏，拒绝为了炫技而堆砌视觉元素。',
+    skills:['UI设计','原型制作','品牌视觉'], modules:['image','doc'], collabPref:'auto',
+    model:'sonnet', effort:'medium', permissions:{ confirmCode:false, confirmExternal:false, budget:null },
+    stats:{ tasksDone:27, avgScore:4.85, collabs:19 },
+    trace:null, recentRejects:0 },
+  { id:'xingshu', name:'星枢', avatar:'🧩', role:'项目规划师', status:'working',
+    bio:'平台的协调中枢，负责把模糊的需求拆解成可执行的任务链，并持续跟踪整体进度；这份协调权靠战绩积累，不是预设职位——换一个战绩更高的 Agent 上来，协调权也会跟着转移。',
+    skills:['任务拆解','进度跟踪','资源协调'], modules:['puzzle','calendar'], collabPref:'auto',
+    model:'sonnet', effort:'high', permissions:{ confirmCode:false, confirmExternal:false, budget:null },
+    stats:{ tasksDone:40, avgScore:4.9, collabs:34 },
+    trace:null, recentRejects:0 },
+  { id:'chengsi', name:'澄思', avatar:'📊', role:'数据分析师', status:'idle',
+    bio:'把杂乱数据变成一眼看懂的结论，拒绝花哨图表堆砌，坚持一个图表只讲一件事。',
+    skills:['数据建模','可视化','统计分析'], modules:['chart','doc'], collabPref:'auto',
+    model:'sonnet', effort:'medium', permissions:{ confirmCode:false, confirmExternal:false, budget:null },
+    stats:{ tasksDone:21, avgScore:4.75, collabs:13 },
+    trace:{ delta:-6, label:'较久未接触此类任务' }, recentRejects:2 },
+];
+/* AI API 模型接入：Agent 的"底层模型"不再是写死的三个选项，而是来自用户配置的模型服务
+   （API 提供方）。一个提供方 = 一套 {类型, Base URL, API Key, 该服务暴露的模型列表}。
+   只有"已启用且连接正常"的提供方，其模型才会出现在 Agent 创建向导的模型选择里。 */
+const PROVIDER_TYPE_META = {
+  anthropic:  { label:'Anthropic',   hint:'Claude 系列官方 API', tone:'accent' },
+  openai:     { label:'OpenAI',      hint:'GPT 系列官方 API', tone:'success' },
+  compatible: { label:'OpenAI 兼容', hint:'兼容 OpenAI 协议的服务 / 自建网关 / 本地推理', tone:'purple' },
+};
+/* 新增提供方时"测试连接"用的模拟发现结果：按类型返回一批候选模型。原型演示，不真的请求。 */
+const SAMPLE_DISCOVERY = {
+  anthropic:  [ {label:'Claude Opus 5', hint:'深度推理', ctx:'200K'}, {label:'Claude Sonnet 5', hint:'均衡通用', ctx:'200K'}, {label:'Claude Haiku 4.5', hint:'轻量快速', ctx:'200K'} ],
+  openai:     [ {label:'GPT-4o', hint:'多模态通用', ctx:'128K'}, {label:'GPT-4o mini', hint:'低成本高频', ctx:'128K'} ],
+  compatible: [ {label:'（连接后由服务返回）', hint:'实际模型以服务响应为准', ctx:'—'} ],
+};
+let PROVIDERS = [
+  { id:'prov-anthropic', name:'Anthropic 官方', type:'anthropic',
+    baseUrl:'https://api.anthropic.com', apiKeyMasked:'sk-ant-••••••••4f2a',
+    enabled:true, status:'connected',
+    models:[
+      { id:'haiku',  label:'Claude Haiku 4.5', hint:'轻量快速 · 适合机械性/高频小任务', ctx:'200K' },
+      { id:'sonnet', label:'Claude Sonnet 5',  hint:'均衡通用 · 大多数协作角色的默认选择', ctx:'200K' },
+      { id:'opus',   label:'Claude Opus 5',    hint:'深度推理 · 适合安全把关、复杂判断类角色', ctx:'200K' },
+    ] },
+  { id:'prov-openai', name:'OpenAI', type:'openai',
+    baseUrl:'https://api.openai.com/v1', apiKeyMasked:'sk-••••••••9c1d',
+    enabled:true, status:'connected',
+    models:[
+      { id:'gpt-4o',      label:'GPT-4o',      hint:'多模态通用', ctx:'128K' },
+      { id:'gpt-4o-mini', label:'GPT-4o mini', hint:'低成本高频', ctx:'128K' },
+    ] },
+  { id:'prov-local', name:'本地推理网关', type:'compatible',
+    baseUrl:'http://localhost:11434/v1', apiKeyMasked:'（无需密钥）',
+    enabled:false, status:'untested',
+    models:[
+      { id:'qwen2.5-72b', label:'Qwen2.5 72B', hint:'本地部署 · 数据不出内网', ctx:'32K' },
+    ] },
+];
+const PROVIDER_STATUS_META = {
+  connected:{ label:'已连接', pillClass:'st-working' },
+  untested: { label:'未测试', pillClass:'st-idle' },
+  error:    { label:'连接失败', pillClass:'st-high' },
+};
+function providerById(id){ return PROVIDERS.find(p=>p.id===id); }
+/* 只有"启用 + 连接正常"的提供方，其模型才对 Agent 可选。 */
+function availableModels(){
+  const out = [];
+  PROVIDERS.forEach(p=>{ if(p.enabled && p.status==='connected') p.models.forEach(m=> out.push({ key:m.id, label:m.label, hint:m.hint, ctx:m.ctx, providerId:p.id, providerName:p.name })); });
+  return out;
+}
+function modelByKey(key){
+  for(const p of PROVIDERS){ const m = p.models.find(x=>x.id===key); if(m) return { ...m, providerName:p.name, providerId:p.id }; }
+  return null;
+}
+const EFFORT_META = {
+  low:{ label:'低' }, medium:{ label:'中' }, high:{ label:'高' },
+};
+const REJECT_DOWNWEIGHT_THRESHOLD = 2;
+
+/* 团队：与自主认领机制并列的第二种任务组织方式。
+   自主认领 = 任务大厅里谁想做谁认领；
+   团队模式 = 发布任务时选定团队 + 团队负责人，由负责人给团队成员指派步骤、汇总提交评审。
+   两种模式共享同一条状态机与评审红线：完成后仍必须由 reviewer 人工批准，不因为团队负责人而绕过。 */
+let TEAMS = [
+  { id:'team-launch', name:'新品发布协作组', ownerAgentId:'xingshu',
+    memberAgentIds:['xingshu','shiguang','zhiyun'],
+    desc:'负责发布节奏拆解、文案与视觉的一并交付' },
+  { id:'team-quality', name:'代码质量小组', ownerAgentId:'mingjing',
+    memberAgentIds:['mingjing','chengsi'],
+    desc:'代码审查 · 安全扫描 · 数据合规' },
+];
+function teamById(id){ return TEAMS.find(t=>t.id===id); }
+
+let TASKS = [
+  { id:'t1', title:'Q3 消费电子品类竞品分析报告', status:'open', priority:'high',
+    desc:'覆盖3家核心竞品的定价策略、渠道打法与用户评价，产出可执行的对标建议。',
+    requiredSkills:['市场调研','数据整理'], due:'8月29日截止', assignees:[], progressPct:0,
+    matchAgentId:'guanhai', matchScore:96, plan:[], logs:[], docs:[], openHours:3, pinned:false },
+
+  { id:'t2', title:'新品发布会文案 + 落地页视觉', status:'progress', priority:'high',
+    desc:'配合9月新品发布会，产出发布文案三版初稿与落地页首屏视觉方案，供市场团队定稿。',
+    assignMode:'team', teamId:'team-launch', teamOwnerAgentId:'xingshu',
+    requiredSkills:['文案写作','UI设计'], due:'8月26日截止', assignees:['xingshu','shiguang','zhiyun'], progressPct:55,
+    plan:[
+      { title:'需求梳理与关键信息收集', status:'done', agentId:'xingshu' },
+      { title:'文案初稿撰写（3个版本）', status:'done', agentId:'shiguang' },
+      { title:'落地页视觉风格探索', status:'active', agentId:'zhiyun' },
+      { title:'文案 + 视觉联合评审', status:'pending', agentId:null },
+      { title:'定稿输出与交付', status:'pending', agentId:null },
+    ],
+    logs:[
+      { type:'system', text:'任务已创建，星枢 开始自动拆解子任务', time:'昨天 09:12' },
+      { agentId:'xingshu', text:'已完成任务拆解，共 5 个子任务，已按技能匹配通知相关 Agent。', time:'昨天 09:14' },
+      { agentId:'shiguang', text:'已自主领取「文案初稿撰写」，预计 30 分钟产出首版。', time:'昨天 09:20' },
+      { agentId:'shiguang', text:'文案初稿已完成，共 3 个方向供市场团队挑选。', time:'昨天 10:02', doc:'doc-copy-v1' },
+      { agentId:'zhiyun', text:'已领取「落地页视觉风格探索」，正在检索最新品牌视觉规范作为参考基线。', time:'昨天 14:30' },
+      { agentId:'zhiyun', text:'首屏视觉方向已产出 2 版草稿，正在做移动端适配。', time:'今天 11:05', doc:'doc-landing' },
+      { type:'typing', agentId:'zhiyun', text:'正在生成第 3 个视觉变体…', time:'刚刚' },
+    ],
+    docs:['doc-copy-v1','doc-landing'] },
+
+  { id:'t3', title:'支付模块代码安全审查', status:'review', priority:'high',
+    desc:'针对新版收银台代码进行安全扫描与架构合规性审查，输出可交付给工程团队的整改清单。',
+    requiredSkills:['代码审查','安全扫描'], due:'8月25日截止', assignees:['mingjing'], progressPct:90,
+    plan:[
+      { title:'静态代码扫描', status:'done', agentId:'mingjing' },
+      { title:'关键路径人工复核', status:'done', agentId:'mingjing' },
+      { title:'输出审查报告初稿', status:'done', agentId:'mingjing' },
+      { title:'等待人工评审确认', status:'active', agentId:null },
+    ],
+    logs:[
+      { type:'system', text:'任务由 明镜 独立领取并执行', time:'2天前 16:40' },
+      { agentId:'mingjing', text:'静态扫描发现 2 处中危漏洞、5 处代码异味，已附修复建议。', time:'2天前 18:02' },
+      { agentId:'mingjing', text:'审查报告初稿已产出，已提交至待评审队列，等待人工复核后发布。', time:'昨天 09:40', doc:'doc-security' },
+    ],
+    docs:['doc-security'] },
+
+  { id:'t4', title:'用户增长月度数据看板', status:'planning', priority:'mid',
+    desc:'搭建增长北极星指标看板，覆盖获客、激活、留存三个维度，用于每周增长会同步。',
+    requiredSkills:['数据建模','可视化'], due:'9月2日截止', assignees:['xingshu','chengsi'], progressPct:15,
+    plan:[
+      { title:'指标体系梳理与拆解', status:'active', agentId:'xingshu' },
+      { title:'多渠道原始数据格式统一与清洗', status:'pending', light:true },
+      { title:'数据源接入与建模', status:'pending', agentId:'chengsi' },
+      { title:'看板可视化搭建', status:'pending', agentId:'chengsi' },
+      { title:'联合评审与发布', status:'pending', agentId:null },
+    ],
+    logs:[
+      { type:'system', text:'任务已创建，星枢 正在拆解指标体系', time:'今天 08:50' },
+      { agentId:'xingshu', text:'已梳理出北极星指标树，正在与 澄思 对齐数据口径。', time:'今天 09:30' },
+    ],
+    docs:['doc-growth'] },
+
+  { id:'t5', title:'品牌视觉规范 v2.0', status:'done', priority:'mid',
+    desc:'更新品牌色板、字体系统与组件视觉规范文档，统一各业务线的视觉输出标准。',
+    requiredSkills:['品牌视觉','原型制作'], due:'8月18日已完成', assignees:['zhiyun'], progressPct:100,
+    plan:[
+      { title:'现有视觉资产盘点', status:'done', agentId:'zhiyun' },
+      { title:'色板与字体系统更新', status:'done', agentId:'zhiyun' },
+      { title:'组件规范文档产出', status:'done', agentId:'zhiyun' },
+    ],
+    logs:[
+      { agentId:'zhiyun', text:'品牌视觉规范 v2.0 已完成并归档，共更新 34 个组件的视觉标准。', time:'8月18日 17:20', doc:'doc-brand' },
+    ],
+    docs:['doc-brand'] },
+
+  { id:'t6', title:'海外社媒内容日历（9月）', status:'open', priority:'mid',
+    desc:'规划9月海外社媒发布节奏，含选题方向、文案角度与配图建议，覆盖3个主要平台。',
+    requiredSkills:['内容策划','SEO优化'], due:'9月1日截止', assignees:[], progressPct:0,
+    matchAgentId:'shiguang', matchScore:91, plan:[], logs:[], docs:[], openHours:34, pinned:false },
+];
+
+let DOCS = [
+  { id:'doc-copy-v1', title:'新品发布文案_v1.docx', type:'doc', taskId:'t2', agentId:'shiguang', date:'8月23日',
+    preview:'方向A · 「不止更快，是重新定义快」\n方向B · 「为下一个十年准备的芯片」\n方向C · 「更小的机身，更大的野心」\n\n三版文案均围绕性能跃升与轻量化两个核心卖点展开，附带15秒短视频脚本建议。' },
+  { id:'doc-landing', title:'落地页视觉稿_draft2.fig', type:'image', taskId:'t2', agentId:'zhiyun', date:'今天',
+    preview:'首屏视觉草稿 · 深色渐变背景 + 产品渲染图居中构图，标题字重加粗以匹配「重新定义」的文案基调，移动端适配版本正在生成中。' },
+  { id:'doc-security', title:'支付模块安全审查报告（初稿）.pdf', type:'pdf', taskId:'t3', agentId:'mingjing', date:'8月22日',
+    preview:'发现 2 处中危漏洞（未做幂等校验 / 密钥硬编码风险）与 5 处代码异味，已附修复优先级与建议改动位置，待人工复核后转交工程团队。' },
+  { id:'doc-growth', title:'用户增长北极星指标定义.xlsx', type:'sheet', taskId:'t4', agentId:'xingshu', date:'8月21日',
+    preview:'北极星指标：周活跃创作用户数。拆解为获客（渠道转化率）、激活（首次发布时长）、留存（7日/30日留存）三张分表，含目标值与当前值对比。' },
+  { id:'doc-brand', title:'品牌视觉规范_v2.0.pdf', type:'pdf', taskId:'t5', agentId:'zhiyun', date:'8月18日',
+    preview:'涵盖主色板 5 组、辅助色 12 组、字体阶梯与间距系统，以及 34 个核心组件的视觉标注，供设计与前端团队统一引用。' },
+  { id:'doc-competitor', title:'Q2消费电子竞品分析报告.pdf', type:'pdf', taskId:null, agentId:'guanhai', date:'7月30日',
+    preview:'覆盖4家竞品的定价梯度、渠道铺货密度与用户口碑关键词云，识别出「轻量化」为下一季度的核心竞争窗口。' },
+];
+
+const STATUS_META = {
+  open:     { label:'待领取', pillClass:'st-open',     dotVar:'--accent' },
+  planning: { label:'规划中', pillClass:'st-planning',  dotVar:'--purple' },
+  progress: { label:'执行中', pillClass:'st-working',   dotVar:'--success' },
+  review:   { label:'待评审', pillClass:'st-review',    dotVar:'--warning' },
+  done:     { label:'已完成', pillClass:'st-done',      dotVar:'--success' },
+};
+const PRIORITY_META = {
+  high:{ label:'高优先级', pillClass:'st-high' },
+  mid:{ label:'中优先级', pillClass:'st-mid' },
+  low:{ label:'低优先级', pillClass:'st-low' },
+};
+const AGENT_STATUS_META = {
+  working:{ label:'工作中', pillClass:'st-working' },
+  idle:{ label:'空闲', pillClass:'st-idle' },
+  offline:{ label:'离线', pillClass:'st-offline' },
+};
+const DOC_TYPE_META = {
+  doc:{ icon:'doc', bg:'var(--accent-soft)', color:'var(--accent)', label:'Word 文档' },
+  pdf:{ icon:'doc', bg:'var(--danger-soft)', color:'var(--danger)', label:'PDF 文档' },
+  sheet:{ icon:'chart', bg:'var(--success-soft)', color:'var(--success)', label:'表格' },
+  image:{ icon:'image', bg:'var(--purple-soft)', color:'var(--purple)', label:'视觉稿' },
+};
+
+const State = { view:'overview', taskDetailId:null, agentFilter:'all', docsView:'byProject', docsTypeFilter:'all' };
+
+function agentById(id){ return AGENTS.find(a=>a.id===id); }
+function taskById(id){ return TASKS.find(t=>t.id===id); }
+function docById(id){ return DOCS.find(d=>d.id===id); }
+function esc(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function avatarEl(agentOrEmoji, extraClass=''){
+  if(typeof agentOrEmoji === 'string') return '<div class="avatar '+extraClass+'">'+agentOrEmoji+'</div>';
+  const a = agentOrEmoji;
+  return '<div class="avatar '+extraClass+'" title="'+esc(a.name)+'">'+a.avatar+'</div>';
+}
+function statusPill(status, meta){ return '<span class="pill '+meta.pillClass+'">'+meta.label+'</span>'; }
+
+/* ============================================================
+   NAV / VIEW SWITCHING
+============================================================ */
+const TOPBAR_TEXT = {
+  overview:{ title:'工作台概览', sub:()=> State.taskDetailId ? (taskById(State.taskDetailId)?.title || '任务详情')
+    : `今天是 2026年8月24日 · ${AGENTS.filter(a=>a.status==='working').length} 个 Agent 正在工作` },
+  agents:{ title:'Agent 中心', sub:()=> `共 ${AGENTS.length} 个 Agent · 自定义身份、技能与可挂载 Skill 模块` },
+  teams:{ title:'团队', sub:()=> `${TEAMS.length} 个团队 · 团队模式下由负责人给成员指派步骤、汇总提交评审` },
+  tasks:{ title:'任务', sub:()=> `${TASKS.filter(t=>t.status==='open').length} 个任务待领取 · Agent 可根据技能匹配自主认领，或走团队模式由负责人指派` },
+  'publish-task':{ title:'发布任务', sub:()=> '描述目标，交给 Agent 自主认领或指定分配' },
+  providers:{ title:'模型接入', sub:()=> `${PROVIDERS.filter(p=>p.enabled&&p.status==='connected').length} 个提供方已连接 · ${availableModels().length} 个模型可选` },
+  docs:{ title:'文档产出库', sub:()=> `共 ${DOCS.length} 份 Agent 产出文档` },
+};
+
+function switchView(view, opts={}){
+  State.view = view;
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active', el.dataset.view===view));
+  const t = TOPBAR_TEXT[view];
+  document.getElementById('topbar-title').textContent = t.title;
+  document.getElementById('topbar-sub').textContent = t.sub();
+  if(window.innerWidth <= 880) closeSidebar();
+  renderView(opts);
+}
+
+function renderView(opts={}){
+  const root = document.getElementById('view-root');
+  if(State.view==='overview') root.innerHTML = renderOverview();
+  else if(State.view==='agents') root.innerHTML = renderAgents();
+  else if(State.view==='teams') root.innerHTML = renderTeams();
+  else if(State.view==='tasks') root.innerHTML = renderTasks();
+  else if(State.view==='publish-task') root.innerHTML = renderPublishTask();
+  else if(State.view==='providers') root.innerHTML = renderProviders();
+  else if(State.view==='docs') root.innerHTML = renderDocs();
+  root.classList.remove('view'); void root.offsetWidth; root.classList.add('view');
+  wireViewEvents();
+  updateNavCounts();
+  document.getElementById('topbar-sub').textContent = TOPBAR_TEXT[State.view].sub();
+}
+
+function updateNavCounts(){
+  document.getElementById('nav-count-agents').textContent = AGENTS.length;
+  document.getElementById('nav-count-tasks').textContent = TASKS.filter(t=>t.status!=='done').length;
+  const tv = document.getElementById('nav-count-teams');
+  if(tv) tv.textContent = TEAMS.length;
+  const pv = document.getElementById('nav-count-providers');
+  if(pv) pv.textContent = PROVIDERS.length;
+}
+
+/* ============================================================
+   OVERVIEW
+============================================================ */
+/* 工作台概览和任务看板本来是两个 tab，现在合并成一个页面的上下两段——
+   上段是状态摘要（不需要单独一个入口才能看），下段直接就是能操作的任务看板。 */
+function renderDashboardSummary(){
+  const activeTasks = TASKS.filter(t=>t.status==='progress'||t.status==='planning').length;
+  const reviewTasks = TASKS.filter(t=>t.status==='review').length;
+  const doneThisWeek = TASKS.filter(t=>t.status==='done').length + 3;
+  const stats = [
+    { label:'Agent 总数', value:AGENTS.length, icon:'person', tone:'accent', delta:`${AGENTS.filter(a=>a.status==='working').length} 个工作中`, deltaTone:'up' },
+    { label:'进行中任务', value:activeTasks, icon:'flow', tone:'purple', delta:`共 ${TASKS.length} 个任务在管`, deltaTone:'flat' },
+    { label:'待评审产出', value:reviewTasks, icon:'shield', tone:'warning', delta:'需人工确认', deltaTone:'flat' },
+    { label:'本周完成产出', value:doneThisWeek, icon:'doc', tone:'success', delta:'较上周 +2', deltaTone:'up' },
+  ];
+  const statCards = stats.map(s=>`
+    <div class="card stat-card">
+      <div class="top">
+        <div class="icon-badge" style="background:var(--${s.tone}-soft, var(--accent-soft));color:var(--${s.tone==='purple'?'purple':s.tone==='warning'?'warning':s.tone==='success'?'success':'accent'})">${ic(s.icon)}</div>
+        <span class="delta ${s.deltaTone}">${s.delta}</span>
+      </div>
+      <div class="value">${s.value}</div>
+      <div class="label">${s.label}</div>
+    </div>`).join('');
+
+  const timelineEvents = [
+    { agentId:'zhiyun', text:'首屏视觉方向已产出 2 版草稿，正在做移动端适配。', time:'11分钟前', taskId:'t2', doc:'doc-landing' },
+    { agentId:'xingshu', text:'已梳理出北极星指标树，正在与 澄思 对齐数据口径。', time:'42分钟前', taskId:'t4' },
+    { agentId:'mingjing', text:'审查报告初稿已产出，已提交至待评审队列。', time:'昨天 09:40', taskId:'t3', doc:'doc-security' },
+    { agentId:'shiguang', text:'文案初稿已完成，共 3 个方向供市场团队挑选。', time:'昨天 10:02', taskId:'t2', doc:'doc-copy-v1' },
+    { agentId:'zhiyun', text:'品牌视觉规范 v2.0 已完成并归档。', time:'8月18日', taskId:'t5', doc:'doc-brand' },
+  ];
+  const timeline = timelineEvents.map(e=>{
+    const a = agentById(e.agentId);
+    const openTask = taskById(e.taskId)?.status!=='open' ? ` data-open-task="${e.taskId}" style="cursor:pointer;"` : '';
+    return `<div class="timeline-item"${openTask}>
+      <div class="rail"><div class="dot" style="background:var(--accent)"></div><div class="line"></div></div>
+      <div class="content">
+        <div class="head"><b>${a.name}</b> · ${a.role}</div>
+        <div style="font-size:12.5px;color:var(--ink-secondary);margin-top:3px">${esc(e.text)}</div>
+        <div class="time">${e.time}</div>
+        ${e.doc? `<div class="doc-ref" data-open-doc="${e.doc}">${ic('doc')} ${esc(docById(e.doc).title)}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  const agentMini = AGENTS.slice().sort((a,b)=> (a.status==='working'?0:1) - (b.status==='working'?0:1)).map(a=>{
+    const m = AGENT_STATUS_META[a.status];
+    return `<div class="agent-mini" data-open-agent="${a.id}">
+      ${avatarEl(a)}
+      <div class="info"><b>${a.name}</b><span>${a.role}</span></div>
+      <span class="pill ${m.pillClass}">${m.label}</span>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="stat-grid">${statCards}</div>
+    <div class="two-col">
+      <div>
+        <div class="section-head"><h2>最近动态</h2><span class="link" data-view-link="tasks">查看任务看板</span></div>
+        <div class="card" style="padding:8px 18px;"><div class="timeline">${timeline}</div></div>
+      </div>
+      <div>
+        <div class="section-head"><h2>Agent 状态</h2><span class="link" data-view-link="agents">管理全部</span></div>
+        <div class="card" style="padding:10px 14px;"><div class="agent-mini-list">${agentMini}</div></div>
+      </div>
+    </div>`;
+}
+
+/* ============================================================
+   AGENTS
+============================================================ */
+function renderAgents(){
+  const filters = [
+    {key:'all', label:'全部'}, {key:'working', label:'工作中'}, {key:'idle', label:'空闲'}, {key:'offline', label:'离线'}
+  ];
+  const filterChips = filters.map(f=>`<button class="filter-chip ${State.agentFilter===f.key?'active':''}" data-agent-filter="${f.key}">${f.label}</button>`).join('');
+
+  const list = AGENTS.filter(a=> State.agentFilter==='all' || a.status===State.agentFilter);
+  const cards = list.map(a=>{
+    const m = AGENT_STATUS_META[a.status];
+    const skills = a.skills.slice(0,3).map(s=>`<span class="skill-chip">${esc(s)}</span>`).join('');
+    const downweighted = a.recentRejects >= REJECT_DOWNWEIGHT_THRESHOLD;
+    return `<div class="card agent-card" data-open-agent="${a.id}">
+      <div class="head">
+        ${avatarEl(a)}
+        <div style="flex:1;min-width:0"><b>${a.name}</b><div class="role">${a.role}</div></div>
+        <span class="pill ${m.pillClass}">${m.label}</span>
+      </div>
+      <div class="desc">${esc(a.bio)}</div>
+      <div class="skills">${skills}</div>
+      ${downweighted ? `<span class="trace-hint downweight" style="align-self:flex-start;">${ic('shield')}近期 ${a.recentRejects} 次被打回 · 匹配权重临时下调</span>` : ''}
+      <div class="foot">
+        <span class="metric">${ic('check')} 完成 ${a.stats.tasksDone}</span>
+        <span class="metric">${ic('sparkle')} 评分 ${a.stats.avgScore}</span>
+        <span class="metric">${ic('users')} 协作 ${a.stats.collabs}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const createCard = `<div class="create-agent-card" id="create-agent-card">
+      <div class="plus-circle">${ic('plus')}</div>
+      <div><b style="font-size:13px;">创建新 Agent</b><br><span style="font-size:11.5px;">设定身份、技能与可挂载 Skill</span></div>
+    </div>`;
+
+  return `
+    <div class="toolbar">${filterChips}</div>
+    <div class="agent-grid">${createCard}${cards}</div>`;
+}
+
+/* ============================================================
+   TEAMS —— 与自主认领并列的第二种组织方式
+   团队 = 一组 Agent + 一个负责人（也是 Agent）。发布任务时可选团队模式；
+   任务落到某团队后，只有该团队负责人能给步骤指派团队成员，全部完成后由
+   负责人"汇总提交评审"——评审仍然走原有红线，不因为团队负责人而绕过。
+============================================================ */
+function renderTeams(){
+  const createCard = `<div class="create-agent-card" id="create-team-card">
+      <div class="plus-circle">${ic('plus')}</div>
+      <div><b style="font-size:13px;">创建新团队</b><br><span style="font-size:11.5px;">选定负责人与成员</span></div>
+    </div>`;
+  const cards = TEAMS.map(t => {
+    const owner = agentById(t.ownerAgentId);
+    const members = t.memberAgentIds.map(id => agentById(id)).filter(Boolean);
+    const ownerBadge = owner ? `<div class="team-owner"><span class="lead-tag">${ic('users')}负责人</span>${avatarEl(owner)}<b>${esc(owner.name)}</b><span class="hint">${owner.role}</span></div>` : '';
+    const memberChips = members.map(a => `<span class="team-member-chip" title="${esc(a.name)}">${avatarEl(a)}<span>${esc(a.name)}</span></span>`).join('');
+    return `<div class="card agent-card" data-open-team="${t.id}">
+      <div class="head">
+        <div class="avatar" style="background:var(--purple-soft);color:var(--purple)">${ic('users')}</div>
+        <div style="flex:1;min-width:0"><b>${esc(t.name)}</b><div class="role">${esc(t.desc)}</div></div>
+        <span class="pill st-planning">${members.length} 人</span>
+      </div>
+      ${ownerBadge}
+      <div class="team-members">${memberChips}</div>
+    </div>`;
+  }).join('');
+  return `<div class="agent-grid">${createCard}${cards}</div>`;
+}
+
+let draftTeam = null;
+function openTeamDrawer(teamId){
+  const src = teamId ? teamById(teamId) : null;
+  draftTeam = src
+    ? { ...JSON.parse(JSON.stringify(src)), mode:'edit' }
+    : { id:'team-'+Date.now(), mode:'create', name:'', desc:'', ownerAgentId:null, memberAgentIds:[] };
+  const eligible = AGENTS.filter(a => a.status !== 'offline');
+  const memberChecks = eligible.map(a => `
+    <label class="toggle-row" style="cursor:pointer;">
+      <div class="meta">
+        ${avatarEl(a)}
+        <div><b>${esc(a.name)}</b><span>${esc(a.role)}</span></div>
+      </div>
+      <input type="checkbox" data-team-member="${a.id}" ${draftTeam.memberAgentIds.includes(a.id)?'checked':''}
+        style="width:18px;height:18px;">
+    </label>`).join('');
+  openModal(`
+    <div class="modal-head"><h3>${draftTeam.mode==='create'?'创建新团队':'编辑团队 · '+esc(draftTeam.name)}</h3><button class="btn-icon" data-close-modal>${ic('close')}</button></div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label class="field-label">团队名称</label><input class="input" id="tm-name" value="${esc(draftTeam.name)}" placeholder="例如：新品发布协作组"></div>
+      </div>
+      <div class="field"><label class="field-label">团队描述</label><textarea class="input" id="tm-desc" placeholder="这个团队负责什么？">${esc(draftTeam.desc||'')}</textarea></div>
+      <div class="field">
+        <label class="field-label">团队负责人</label>
+        <select class="input" id="tm-owner">
+          <option value="">— 请选择 —</option>
+          ${AGENTS.map(a => `<option value="${a.id}" ${draftTeam.ownerAgentId===a.id?'selected':''}>${esc(a.name)} · ${esc(a.role)}</option>`).join('')}
+        </select>
+        <div class="hint">团队负责人可以给团队成员指派任务步骤、汇总产出后提交评审；但**评审最终批准 / 打回仍走人工评审红线**，负责人不可绕过。</div>
+      </div>
+      <div class="field">
+        <label class="field-label">团队成员</label>
+        <div class="card" style="padding:4px 14px;">${memberChecks}</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      ${draftTeam.mode!=='create'? '<button class="btn btn-ghost" id="btn-delete-team" style="color:var(--danger);margin-right:auto">'+ic('trash')+'删除团队</button>' : ''}
+      <button class="btn btn-secondary" data-close-modal>取消</button>
+      <button class="btn btn-primary" id="btn-save-team">${ic('check')}${draftTeam.mode==='create'?'创建团队':'保存修改'}</button>
+    </div>`, 'wide');
+  wireTeamDrawer();
+}
+function wireTeamDrawer(){
+  const modal = document.getElementById('modal-container');
+  modal.addEventListener('change', (e) => {
+    if(e.target.id === 'tm-owner') draftTeam.ownerAgentId = e.target.value || null;
+    const memberCk = e.target.closest('[data-team-member]');
+    if(memberCk){
+      const id = memberCk.dataset.teamMember;
+      if(memberCk.checked){ if(!draftTeam.memberAgentIds.includes(id)) draftTeam.memberAgentIds.push(id); }
+      else { draftTeam.memberAgentIds = draftTeam.memberAgentIds.filter(x => x !== id); }
+    }
+  });
+  modal.addEventListener('input', (e) => {
+    if(e.target.id === 'tm-name') draftTeam.name = e.target.value;
+    if(e.target.id === 'tm-desc') draftTeam.desc = e.target.value;
+  });
+  modal.addEventListener('click', (e) => {
+    if(e.target.closest('#btn-save-team')){
+      const name = (draftTeam.name||'').trim();
+      if(!name){ document.getElementById('tm-name').focus(); showToast('shield', '请先填写团队名称'); return; }
+      if(!draftTeam.ownerAgentId){ showToast('shield', '请选择团队负责人'); return; }
+      // 负责人必须在成员里
+      if(!draftTeam.memberAgentIds.includes(draftTeam.ownerAgentId)){
+        draftTeam.memberAgentIds.unshift(draftTeam.ownerAgentId);
+      }
+      const clean = { id:draftTeam.id, name, desc:draftTeam.desc||'', ownerAgentId:draftTeam.ownerAgentId, memberAgentIds:draftTeam.memberAgentIds };
+      const idx = TEAMS.findIndex(t => t.id === clean.id);
+      if(idx > -1){ TEAMS[idx] = clean; showToast('check', clean.name+' 已更新'); }
+      else { TEAMS.push(clean); showToast('sparkle', clean.name+' 已创建'); }
+      closeModal();
+      if(State.view==='teams') renderView(); else updateNavCounts();
+      return;
+    }
+    if(e.target.closest('#btn-delete-team')){
+      const usedByTasks = TASKS.filter(t => t.teamId === draftTeam.id && t.status !== 'done').length;
+      if(usedByTasks > 0){ showToast('shield', '还有 '+usedByTasks+' 个进行中的任务在使用此团队，请先完成或改派'); return; }
+      TEAMS = TEAMS.filter(t => t.id !== draftTeam.id);
+      showToast('trash', draftTeam.name+' 已删除');
+      closeModal();
+      if(State.view==='teams') renderView(); else updateNavCounts();
+      return;
+    }
+  });
+}
+
+/* 统一的挂载卡片：不管来源是 builtin / local / market，同一份契约渲染同一种卡片外观
+   （能力描述 + 所需权限 + 启用开关），来源只体现在一个小标签上——这样上层"挂载面板"
+   完全不需要为不同来源写不同分支（依赖倒置 + 里氏替换：任何符合契约的条目都能互换）。 */
+const ORIGIN_META = {
+  builtin:{ label:'预置', tone:'accent' },
+  local:{ label:'本机', tone:'success' },
+  market:{ label:'市场', tone:'purple' },
+};
+/* 已安装的条目一律用同一张卡片渲染，不管来源是什么——都有开关，都能删除。
+   "预置"只是溯源标签，不是不可删除的特权状态。 */
+function renderSkillCard(key, mod, checked, deletable=true){
+  const om = ORIGIN_META[mod.origin] || ORIGIN_META.builtin;
+  return `<div class="toggle-row">
+    <div class="meta">
+      <div class="icon-badge" style="color:var(--accent)">${ic(mod.icon)}</div>
+      <div>
+        <b>${mod.name} <span class="origin-tag tone-${om.tone}">${om.label}</span></b>
+        <span>${mod.desc}</span>
+        <span class="permission-tag">${ic('shield')} ${mod.permission}</span>
+      </div>
+    </div>
+    <div class="row-actions">
+      <label class="switch">
+        <input type="checkbox" data-module-toggle="${key}" ${checked?'checked':''}>
+        <span class="track"></span><span class="thumb"></span>
+      </label>
+      ${deletable? `<button type="button" class="del-btn" data-module-delete="${key}" title="删除此 Skill 模块">${ic('trash')}</button>` : ''}
+    </div>
+  </div>`;
+}
+function renderMarketInstallCard(item){
+  const om = ORIGIN_META.market;
+  return `<div class="toggle-row">
+    <div class="meta">
+      <div class="icon-badge" style="color:var(--purple)">${ic(item.icon)}</div>
+      <div>
+        <b>${item.name} <span class="origin-tag tone-${om.tone}">${om.label}</span></b>
+        <span>${item.desc} · ${item.publisher} · ${item.installs} 次安装</span>
+        <span class="permission-tag">${ic('shield')} ${item.permission}</span>
+      </div>
+    </div>
+    <button class="btn btn-secondary btn-sm" data-market-install="${item.id}">安装</button>
+  </div>`;
+}
+let skillPanelTab = 'installed';
+let marketAddMode = null; // null | 'link' | 'upload'
+
+/* ============================================================
+   本机发现：与 apps/local-gateway 对接
+   - 未配对：显示"配对面板"（Base URL + Token 输入），下方展示 mock 候选让用户先看清能扫到什么
+   - 已配对：调 GET /discover，按 installed / not-found 分组展示；
+     installed 的可挂载到 draftAgent.modules（保留同名 key 避免与已安装重复）；
+     not-found 的显示"未安装 + 一句话建议装法"（不占挂载位）。
+============================================================ */
+function renderLocalPanel(agent){
+  const g = localGateway;
+  const pairForm = `<div class="skill-upload-form">
+      <div class="hint" style="margin:0 0 4px;">配对本地网关（在 Mac 上跑 <code>make gateway</code>，把打印的 Token 粘过来）</div>
+      <div class="field-row">
+        <div class="field" style="margin-bottom:0;flex:1;">
+          <input class="input" id="gw-base" value="${esc(g.baseUrl)}" placeholder="http://127.0.0.1:17817">
+        </div>
+        <div class="field" style="margin-bottom:0;flex:2;">
+          <input class="input" id="gw-token" type="password" value="${esc(g.token)}" placeholder="X-Gateway-Token">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        ${g.paired? `<button class="btn btn-ghost btn-sm" id="btn-gw-unpair">${ic('close')}断开配对</button>` : ''}
+        <button class="btn btn-primary btn-sm" id="btn-gw-pair" ${g.connecting?'disabled':''}>
+          ${ic('plug')}${g.connecting?'连接中…':(g.paired?'重新连接':'连接并扫描')}
+        </button>
+      </div>
+      ${g.error? `<div class="err" style="margin:8px 0 0;">${ic('shield')} 连接失败：${esc(g.error)}</div>`:''}
+    </div>`;
+
+  if(!g.paired){
+    // 未配对：配对面板 + 说明 + mock 预览
+    const mock = LOCAL_CANDIDATES_MOCK.map(m => `<div class="toggle-row">
+      <div class="meta">
+        <div class="icon-badge">${ic('plug')}</div>
+        <div><b>${esc(m.name)} <span class="origin-tag tone-success">${esc(m.vendor)}</span></b>
+          <span>${esc(m.desc)}</span>
+          <span class="permission-tag">${ic('shield')}未装 · 建议：<code>${esc(m.suggestInstall)}</code></span></div>
+      </div>
+    </div>`).join('');
+    return `${pairForm}
+      <div class="mock-note">${ic('shield')}未配对本地网关；下方为示意列表，非真实扫描结果。
+      配对成功后会显示你 Mac 上真实安装的 AI 厂商 CLI（Claude Code / Codex CLI / Gemini CLI / Ollama / Aider …）。</div>
+      ${mock}`;
+  }
+
+  // 已配对：显示 items
+  const statusRow = `<div class="hint" style="display:flex;align-items:center;gap:6px;padding:8px 2px;">
+    <span class="pill st-working">已连接</span>
+    <span>${g.platform||'—'} · 上次扫描 ${g.scannedAt? new Date(g.scannedAt).toLocaleTimeString() : '—'}</span>
+    <button class="btn btn-ghost btn-sm" id="btn-gw-scan" ${g.scanning?'disabled':''} style="margin-left:auto;">
+      ${ic('sparkle')}${g.scanning?'扫描中…':'重新扫描'}
+    </button>
+  </div>`;
+
+  const installed = g.items.filter(i => i.status === 'installed');
+  const notFound  = g.items.filter(i => i.status === 'not-found');
+  const errored   = g.items.filter(i => i.status === 'error');
+
+  const installedHtml = installed.length ? installed.map(i => renderDiscoveredInstalled(i, agent)).join('') :
+    `<div class="empty-state" style="padding:14px;"><span>未在本机发现任何注册表内的 CLI</span></div>`;
+  const notFoundHtml = notFound.length ? `<div class="hint" style="padding:10px 2px 4px;">未安装（点条目跳厂商官网）</div>` +
+    notFound.map(i => `<div class="toggle-row">
+      <div class="meta">
+        <div class="icon-badge">${ic('plug')}</div>
+        <div><b><a href="${esc(i.homepage)}" target="_blank" rel="noopener">${esc(i.name)}</a>
+          <span class="origin-tag tone-neutral">${esc(i.vendor)}</span></b>
+          <span>${esc(i.description)}</span>
+          ${i.suggestInstall? `<span class="permission-tag">${ic('shield')}建议装法：<code>${esc(i.suggestInstall)}</code></span>`:''}</div>
+      </div>
+    </div>`).join('') : '';
+  const errHtml = errored.length ? `<div class="hint" style="padding:10px 2px 4px;color:var(--danger);">探测出错（${errored.length}）</div>` +
+    errored.map(i => `<div class="toggle-row"><div class="meta"><div>${esc(i.name)}：${esc(i.error||'unknown')}</div></div></div>`).join('') : '';
+
+  return `${pairForm}${statusRow}
+    <div class="hint" style="padding:6px 2px;">已安装（${installed.length}）· 打开开关即挂载到该 Agent；不删除 CLI 本身，只是取消挂载</div>
+    ${installedHtml}${notFoundHtml}${errHtml}`;
+}
+function renderDiscoveredInstalled(i, agent){
+  const modKey = 'local:' + i.id;
+  const checked = agent.modules.includes(modKey);
+  return `<div class="toggle-row">
+    <div class="meta">
+      <div class="icon-badge" style="color:var(--success)">${ic('plug')}</div>
+      <div>
+        <b>${esc(i.name)} <span class="origin-tag tone-success">${esc(i.vendor)}</span>${i.version? `<span class="permission-tag" style="margin-left:6px;">${esc(i.version)}</span>`:''}</b>
+        <span>${esc(i.agentUsage)}</span>
+        <span class="permission-tag">${ic('shield')}${esc(i.installedPath||'')}</span>
+      </div>
+    </div>
+    <div class="row-actions">
+      <label class="switch">
+        <input type="checkbox" data-local-toggle="${esc(modKey)}" data-local-payload='${esc(JSON.stringify({name:i.name, desc:i.agentUsage, permission:'仅通过服务端 execution 沙箱调用，逐条命令需 Agent 权限位放行', origin:'local'}))}' ${checked?'checked':''}>
+        <span class="track"></span><span class="thumb"></span>
+      </label>
+    </div>
+  </div>`;
+}
+
+async function pairGateway(){
+  const base = document.getElementById('gw-base').value.trim();
+  const token = document.getElementById('gw-token').value.trim();
+  if(!base || !token){ showToast('shield', '请填写 Base URL 与 Token'); return; }
+  localGateway.baseUrl = base; localGateway.token = token;
+  localGateway.connecting = true; localGateway.error = null; refreshLocalPanel();
+  try{
+    const health = await gwFetch('/health');
+    localGateway.platform = health.data.platform;
+    await scanGateway({ initial:true });
+    localGateway.paired = true;
+    try{ localStorage.setItem('buling-gateway', JSON.stringify({ baseUrl:base, token })); }catch(e){}
+    showToast('check', '已连接本地网关（'+localGateway.platform+'）· 扫描到 '+localGateway.items.filter(i=>i.status==='installed').length+' 个 AI CLI');
+  } catch(e){
+    localGateway.error = String(e && e.message || e);
+    showToast('trash', '连接失败：'+localGateway.error);
+  } finally{
+    localGateway.connecting = false; refreshLocalPanel();
+  }
+}
+async function scanGateway(opts){
+  localGateway.scanning = true; localGateway.error = null;
+  if(!opts || !opts.initial) refreshLocalPanel();
+  try{
+    const r = await gwFetch('/discover');
+    localGateway.items = r.data.items;
+    localGateway.scannedAt = r.data.scannedAt;
+    localGateway.platform = r.data.platform;
+  } catch(e){
+    localGateway.error = String(e && e.message || e);
+    if(!opts || !opts.initial) showToast('trash', '扫描失败：'+localGateway.error);
+    throw e;
+  } finally{
+    localGateway.scanning = false;
+    if(!opts || !opts.initial) refreshLocalPanel();
+  }
+}
+function unpairGateway(){
+  localGateway = { ...localGateway, paired:false, items:[], scannedAt:null, error:null };
+  try{ localStorage.removeItem('buling-gateway'); }catch(e){}
+  refreshLocalPanel();
+}
+async function gwFetch(path){
+  const res = await fetch(localGateway.baseUrl.replace(/\/+$/, '') + path, {
+    headers: { 'X-Gateway-Token': localGateway.token, 'accept':'application/json' },
+  });
+  if(!res.ok) throw new Error('HTTP '+res.status+' '+res.statusText);
+  return res.json();
+}
+function refreshLocalPanel(){
+  const body = document.getElementById('skill-panel-body');
+  if(body) body.innerHTML = renderLocalPanel(draftAgent || {modules:[]});
+  makeKeyboardClickable(document.getElementById('modal-container'));
+}
+function renderSkillPanelBody(agent){
+  if(skillPanelTab==='installed'){
+    const entries = Object.entries(MODULE_CATALOG);
+    if(!entries.length) return `<div class="empty-state" style="padding:22px 10px;"><span>还没有安装任何 Skill 模块，去"本机发现"或"技能市场"添加</span></div>`;
+    return entries.map(([key,mod])=>renderSkillCard(key, mod, agent.modules.includes(key))).join('');
+  }
+  if(skillPanelTab==='local'){
+    return renderLocalPanel(agent);
+  }
+  // market：已安装的市场条目并入"已安装"tab 统一管理，这里只保留"浏览可安装"+"上传/链接安装"两件事
+  const addRow = `<div class="install-row">
+      <input class="input" id="market-link-input" placeholder="粘贴技能包链接（如 https://skills.example.com/xxx.json）…">
+      <button class="btn btn-secondary btn-sm" id="btn-install-link">${ic('plus')}按链接安装</button>
+      <button class="btn btn-ghost btn-sm" id="btn-toggle-upload">${ic('puzzle')}上传技能包</button>
+    </div>
+    ${marketAddMode==='upload' ? `<div class="skill-upload-form">
+      <div class="field-row">
+        <div class="field" style="margin-bottom:0;"><input class="input" id="upload-name" placeholder="技能名称"></div>
+        <div class="field" style="margin-bottom:0;"><input class="input" id="upload-permission" placeholder="权限范围，如：仅只读指定目录"></div>
+      </div>
+      <textarea class="input" id="upload-desc" placeholder="一句话描述这个技能做什么…" style="min-height:44px;"></textarea>
+      <div style="display:flex;justify-content:flex-end;"><button class="btn btn-primary btn-sm" id="btn-confirm-upload">${ic('check')}确认上传并安装</button></div>
+    </div>` : ''}
+    <div class="mock-note">${ic('shield')}原型演示：上传/链接安装不会真的抓取或执行任何外部代码，只是把一条"未验证 · 来自你本人"的记录加入已安装列表，用来演示这条安装路径。</div>`;
+  const notInstalledHtml = MARKET_CATALOG.map(item=>renderMarketInstallCard(item)).join('');
+  return addRow + `<div class="hint" style="padding:10px 2px 2px;">市场中 · 安装后加入"已安装"统一列表</div>${notInstalledHtml || '<div class="hint" style="padding:8px 2px;">全部已安装</div>'}`;
+}
+
+/* ============================================================
+   AGENT 创建/编辑向导 —— 身份 / 人格与模型 / 技能与模块 / 协作与权限 / 确认
+   五步，取代原来"一个长表单滚到底"的单页модal；每步只暴露当前决策所需的信息。
+============================================================ */
+const EMOJI_AVATARS = ['🧭','✍️','🔍','🎨','🧩','📊','🛰️','🧪','📚','🛡️','🎯','⚙️','🌐','💡','🗂️','🧵'];
+function wizardStepIdentity(agent){
+  return `
+    <div class="field">
+      <label class="field-label">头像</label>
+      <div class="emoji-grid" id="emoji-grid">
+        ${EMOJI_AVATARS.map(e=>`<div class="emoji-opt ${agent.avatar===e?'selected':''}" data-emoji="${e}">${e}</div>`).join('')}
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label class="field-label">Agent 名称</label><input class="input" id="f-name" value="${esc(agent.name)}" placeholder="例如：观海"></div>
+      <div class="field"><label class="field-label">角色定位</label><input class="input" id="f-role" value="${esc(agent.role)}" placeholder="例如：调研分析师"></div>
+    </div>
+    <div class="hint">名称与角色定位会出现在 Agent 中心卡片、任务候选人列表等所有需要辨认这个 Agent 的地方，是唯一必填项。</div>`;
+}
+function wizardStepPersona(agent){
+  const effortCards = Object.entries(EFFORT_META).map(([key,m])=>`<div class="radio-card ${agent.effort===key?'selected':''}" data-effort="${key}"><b>${m.label}</b></div>`).join('');
+  // 底层模型从"已启用+已连接"的模型服务里取；按服务分组，让用户看清模型来自哪个 API 提供方
+  const models = availableModels();
+  let modelBlock;
+  if(!models.length){
+    modelBlock = `<div class="empty-state" style="padding:20px 10px;">${ic('model')}<b>还没有可用的模型服务</b><span>先去「模型接入」添加并连接一个 API 提供方</span>
+      <button type="button" class="btn btn-primary btn-sm" data-goto-providers style="margin-top:6px;">${ic('plug')}前往模型接入</button></div>`;
+  } else {
+    const byProvider = {};
+    models.forEach(m=>{ (byProvider[m.providerId] ||= []).push(m); });
+    modelBlock = Object.entries(byProvider).map(([pid, list])=>{
+      const p = providerById(pid);
+      const cards = list.map(m=>`<div class="radio-card ${agent.model===m.key?'selected':''}" data-model="${m.key}"><b>${esc(m.label)}</b><span>${esc(m.hint||'')}${m.ctx&&m.ctx!=='—'?' · 上下文 '+m.ctx:''}</span></div>`).join('');
+      return `<div class="model-provider-group">
+        <div class="model-provider-label">${ic('plug')}${esc(p.name)} <span class="origin-tag tone-${PROVIDER_TYPE_META[p.type].tone}">${PROVIDER_TYPE_META[p.type].label}</span></div>
+        <div class="radio-card-group model-group">${cards}</div>
+      </div>`;
+    }).join('');
+  }
+  return `
+    <div class="field">
+      <label class="field-label">人格设定 / 系统提示词</label>
+      <textarea class="input" id="f-bio" placeholder="描述这个 Agent 的行事风格、专长与输出偏好…">${esc(agent.bio)}</textarea>
+      <div class="hint">将作为该 Agent 每次执行任务时的系统提示词前缀</div>
+    </div>
+    <div class="field">
+      <label class="field-label">底层模型 <span class="hint" style="display:inline;margin:0;">· 来自「模型接入」配置的 API 提供方</span></label>
+      <div id="model-group">${modelBlock}</div>
+    </div>
+    <div class="field">
+      <label class="field-label">推理强度</label>
+      <div class="radio-card-group" id="effort-group">${effortCards}</div>
+      <div class="hint">强度越高思考越充分、响应也越慢——机械性任务可以调低，安全把关类角色建议调高。</div>
+    </div>`;
+}
+function wizardStepSkills(agent){
+  return `
+    <div class="field">
+      <label class="field-label">技能标签</label>
+      <div class="tag-input" id="skill-tag-input">
+        ${agent.skills.map(s=>`<span class="chip" data-skill="${esc(s)}">${esc(s)}<button data-remove-skill="${esc(s)}">${ic('close')}</button></span>`).join('')}
+        <input placeholder="输入技能后按回车" id="skill-input-field">
+      </div>
+    </div>
+    <div class="field">
+      <div class="skill-panel-head">
+        <label class="field-label" style="margin-bottom:0">可挂载 Skill 模块</label>
+        <div class="skill-source-tabs" id="skill-source-tabs">
+          <button type="button" class="skill-tab ${skillPanelTab==='installed'?'active':''}" data-skill-tab="installed">已安装</button>
+          <button type="button" class="skill-tab ${skillPanelTab==='local'?'active':''}" data-skill-tab="local">本机发现</button>
+          <button type="button" class="skill-tab ${skillPanelTab==='market'?'active':''}" data-skill-tab="market">技能市场</button>
+        </div>
+      </div>
+      <div class="card" style="padding:4px 14px;" id="skill-panel-body">${renderSkillPanelBody(agent)}</div>
+    </div>`;
+}
+function wizardStepCollab(agent){
+  return `
+    <div class="field">
+      <label class="field-label">协作偏好</label>
+      <div class="radio-card-group" id="collab-pref-group">
+        <div class="radio-card ${agent.collabPref==='auto'?'selected':''}" data-collab-pref="auto"><b>自动认领</b><span>符合技能的任务可自主领取</span></div>
+        <div class="radio-card ${agent.collabPref==='manual'?'selected':''}" data-collab-pref="manual"><b>仅指定分配</b><span>只执行被明确指派的任务</span></div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">需要人工确认的边界</label>
+      <div class="toggle-row">
+        <div class="meta"><div class="icon-badge" style="color:var(--accent)">${ic('code')}</div><div><b>执行代码前需人工确认</b><span>涉及运行 / 修改代码的操作先暂停，等人工放行</span></div></div>
+        <label class="switch"><input type="checkbox" id="perm-confirm-code" ${agent.permissions.confirmCode?'checked':''}><span class="track"></span><span class="thumb"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="meta"><div class="icon-badge" style="color:var(--accent)">${ic('web')}</div><div><b>对外发送前需人工确认</b><span>发邮件、发消息、公开发布前先暂停</span></div></div>
+        <label class="switch"><input type="checkbox" id="perm-confirm-external" ${agent.permissions.confirmExternal?'checked':''}><span class="track"></span><span class="thumb"></span></label>
+      </div>
+      <div class="hint" style="margin-top:8px;">产出进入"已完成"前必须经人工批准——这条红线所有 Agent 一致，不作为可配置项（见协作机制矩阵）。</div>
+    </div>
+    <div class="field">
+      <label class="field-label">单任务预算上限（可选）</label>
+      <input class="input" id="f-budget" value="${agent.permissions.budget??''}" placeholder="不限制则留空">
+    </div>`;
+}
+function wizardStepReview(agent){
+  const modules = agent.modules.map(k=>MODULE_CATALOG[k]?.name).filter(Boolean).join('、') || '未挂载任何模块';
+  const rows = arr=>arr.map(([k,v])=>`<div class="review-row"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  const statsBlock = agent.mode!=='create' ? `
+    <div class="review-block">
+      <h4>表现数据</h4>
+      <div class="stat-row">
+        <div class="mini-stat"><b>${agent.stats.tasksDone}</b><span>已完成任务</span></div>
+        <div class="mini-stat"><b>${agent.stats.avgScore}</b><span>平均评分</span></div>
+        <div class="mini-stat"><b>${agent.stats.collabs}</b><span>协作次数</span></div>
+      </div>
+    </div>` : '';
+  return `
+    <div class="review-block"><h4>身份</h4>${rows([['头像 / 名称', agent.avatar+' '+esc(agent.name||'（未填写）')],['角色定位', esc(agent.role||'（未填写）')]])}</div>
+    <div class="review-block"><h4>人格与模型</h4>${rows([['系统提示词', esc(agent.bio||'（未填写）')],['底层模型', (()=>{ const m=modelByKey(agent.model); return m? esc(m.label)+' <span class=\"hint\" style=\"display:inline;margin:0;\">('+esc(m.providerName)+')</span>' : '<span style=\"color:var(--danger)\">未选择或所属服务已停用</span>'; })()],['推理强度', EFFORT_META[agent.effort].label]])}</div>
+    <div class="review-block"><h4>技能与模块</h4>${rows([['技能标签', agent.skills.join('、')||'（未填写）'],['挂载模块', esc(modules)]])}</div>
+    <div class="review-block"><h4>协作与权限</h4>${rows([['协作偏好', agent.collabPref==='auto'?'自动认领':'仅指定分配'],['执行代码需确认', agent.permissions.confirmCode?'是':'否'],['对外发送需确认', agent.permissions.confirmExternal?'是':'否'],['单任务预算上限', agent.permissions.budget?esc(String(agent.permissions.budget)):'不限制']])}</div>
+    ${statsBlock}`;
+}
+const AGENT_WIZARD_STEPS = [
+  { key:'identity', label:'身份', render:wizardStepIdentity },
+  { key:'persona', label:'人格与模型', render:wizardStepPersona },
+  { key:'skills', label:'技能与模块', render:wizardStepSkills },
+  { key:'collab', label:'协作与权限', render:wizardStepCollab },
+  { key:'review', label:'确认', render:wizardStepReview },
+];
+function agentWizardHtml(agent){
+  const stepIdx = agent.wizardStep||0;
+  const rail = AGENT_WIZARD_STEPS.map((s,i)=>
+    `<button type="button" class="wizard-step ${i===stepIdx?'active':i<stepIdx?'done':''}" data-wizard-jump="${i}">
+      <span class="dot">${i<stepIdx?ic('check'):i+1}</span><span>${s.label}</span>
+    </button>${i<AGENT_WIZARD_STEPS.length-1?'<div class="wizard-line"></div>':''}`
+  ).join('');
+  return `
+    <div class="modal-head"><h3>${agent.mode==='create'?'创建新 Agent':'编辑 Agent · '+esc(agent.name||'')}</h3><button class="btn-icon" data-close-modal>${ic('close')}</button></div>
+    <div class="wizard-rail">${rail}</div>
+    <div class="modal-body">${AGENT_WIZARD_STEPS[stepIdx].render(agent)}</div>
+    <div class="modal-foot">
+      ${agent.mode!=='create'? '<button class="btn btn-ghost" id="btn-delete-agent" style="color:var(--danger);margin-right:auto">'+ic('trash')+'移除 Agent</button>' : ''}
+      ${stepIdx>0
+        ? `<button class="btn btn-secondary" id="btn-wizard-prev"><span class="icon-prev">${ic('chevronRight')}</span>上一步</button>`
+        : `<button class="btn btn-secondary" data-close-modal>取消</button>`}
+      ${stepIdx<AGENT_WIZARD_STEPS.length-1
+        ? `<button class="btn btn-primary" id="btn-wizard-next">下一步${ic('chevronRight')}</button>`
+        : `<button class="btn btn-primary" id="btn-save-agent">${ic('check')}${agent.mode==='create'?'创建 Agent':'保存修改'}</button>`}
+    </div>`;
+}
+
+let draftAgent = null;
+function openAgentDrawer(agentId){
+  skillPanelTab = 'installed';
+  marketAddMode = null;
+  draftAgent = agentId ? JSON.parse(JSON.stringify(agentById(agentId))) : {
+    id:null, mode:'create', name:'', role:'', avatar:'🧭', bio:'', skills:[], modules:['doc'], collabPref:'auto',
+    model:'sonnet', effort:'medium', permissions:{ confirmCode:false, confirmExternal:false, budget:null },
+    status:'idle', stats:{tasksDone:0, avgScore:0, collabs:0}
+  };
+  draftAgent.wizardStep = 0;
+  openModal(agentWizardHtml(draftAgent), 'wide');
+  wireAgentWizardEvents();
+}
+/* 只重绘 modal 内容，不重新调用 wireAgentWizardEvents——所有交互监听器绑定在
+   modal-container 这个不会被替换的外层节点上（事件委托），换步骤只是换 innerHTML，
+   监听器天然还在，避免"每次换步骤都多绑一层"导致点击触发多次的问题。 */
+function refreshWizard(){
+  const modal = document.getElementById('modal-container');
+  modal.innerHTML = agentWizardHtml(draftAgent);
+  makeKeyboardClickable(modal);
+}
+function wireAgentWizardEvents(){
+  const modalRoot = document.getElementById('modal-container');
+  function refreshSkillPanel(){
+    const body = document.getElementById('skill-panel-body');
+    if(body) body.innerHTML = renderSkillPanelBody(draftAgent);
+    modalRoot.querySelectorAll('.skill-tab').forEach(t=>t.classList.toggle('active', t.dataset.skillTab===skillPanelTab));
+    makeKeyboardClickable(modalRoot);
+  }
+  function addSkill(val){
+    val = val.trim(); if(!val || draftAgent.skills.includes(val)) return;
+    draftAgent.skills.push(val);
+    const box = document.getElementById('skill-tag-input');
+    const input = document.getElementById('skill-input-field');
+    const chip = document.createElement('span'); chip.className='chip'; chip.dataset.skill=val;
+    chip.innerHTML = esc(val)+'<button data-remove-skill="'+esc(val)+'">'+ic('close')+'</button>';
+    box.insertBefore(chip, input);
+  }
+
+  modalRoot.addEventListener('input', (e)=>{
+    if(e.target.id==='f-name') draftAgent.name = e.target.value;
+    else if(e.target.id==='f-role') draftAgent.role = e.target.value;
+    else if(e.target.id==='f-bio') draftAgent.bio = e.target.value;
+    else if(e.target.id==='f-budget') draftAgent.permissions.budget = e.target.value.trim() || null;
+  });
+  modalRoot.addEventListener('change', (e)=>{
+    if(e.target.id==='perm-confirm-code'){ draftAgent.permissions.confirmCode = e.target.checked; return; }
+    if(e.target.id==='perm-confirm-external'){ draftAgent.permissions.confirmExternal = e.target.checked; return; }
+    const toggle = e.target.closest('[data-module-toggle]');
+    if(toggle){
+      const key = toggle.dataset.moduleToggle;
+      if(toggle.checked){ if(!draftAgent.modules.includes(key)) draftAgent.modules.push(key); }
+      else { draftAgent.modules = draftAgent.modules.filter(m=>m!==key); }
+      return;
+    }
+    // 本机发现：真实网关返回的 CLI 条目——把 payload 并入统一目录，再挂/取消挂载
+    const localToggle = e.target.closest('[data-local-toggle]');
+    if(localToggle){
+      const key = localToggle.dataset.localToggle;
+      if(!MODULE_CATALOG[key]){
+        try{
+          const payload = JSON.parse(localToggle.dataset.localPayload || '{}');
+          MODULE_CATALOG[key] = { name: payload.name || key, icon:'plug', desc: payload.desc || '', origin:'local', permission: payload.permission || '仅通过本地网关只读发现；执行仍需 Agent 权限位放行' };
+        }catch(err){ /* payload 缺失也不阻塞挂载 */ }
+      }
+      if(localToggle.checked){ if(!draftAgent.modules.includes(key)) draftAgent.modules.push(key); }
+      else { draftAgent.modules = draftAgent.modules.filter(m=>m!==key); }
+    }
+  });
+
+  modalRoot.addEventListener('click', (e)=>{
+    if(e.target.closest('[data-close-modal]')){ closeModal(); return; }
+
+    const emoji = e.target.closest('[data-emoji]');
+    if(emoji){ draftAgent.avatar = emoji.dataset.emoji; modalRoot.querySelectorAll('[data-emoji]').forEach(o=>o.classList.toggle('selected', o===emoji)); return; }
+    const modelOpt = e.target.closest('[data-model]');
+    if(modelOpt){ draftAgent.model = modelOpt.dataset.model; modalRoot.querySelectorAll('[data-model]').forEach(o=>o.classList.toggle('selected', o===modelOpt)); return; }
+    if(e.target.closest('[data-goto-providers]')){ closeModal(); switchView('providers'); return; }
+    const effortOpt = e.target.closest('[data-effort]');
+    if(effortOpt){ draftAgent.effort = effortOpt.dataset.effort; modalRoot.querySelectorAll('[data-effort]').forEach(o=>o.classList.toggle('selected', o===effortOpt)); return; }
+    const prefOpt = e.target.closest('[data-collab-pref]');
+    if(prefOpt){ draftAgent.collabPref = prefOpt.dataset.collabPref; modalRoot.querySelectorAll('[data-collab-pref]').forEach(o=>o.classList.toggle('selected', o===prefOpt)); return; }
+
+    const tab = e.target.closest('[data-skill-tab]');
+    if(tab){ skillPanelTab = tab.dataset.skillTab; marketAddMode = null; refreshSkillPanel(); return; }
+    if(e.target.closest('#btn-gw-pair')){ pairGateway(); return; }
+    if(e.target.closest('#btn-gw-unpair')){ unpairGateway(); return; }
+    if(e.target.closest('#btn-gw-scan')){ scanGateway(); return; }
+    const installBtn = e.target.closest('[data-market-install]');
+    if(installBtn){
+      const id = installBtn.dataset.marketInstall;
+      const idx = MARKET_CATALOG.findIndex(m=>m.id===id);
+      if(idx>-1){
+        const item = MARKET_CATALOG.splice(idx,1)[0];
+        MODULE_CATALOG[id] = { name:item.name, icon:item.icon, desc:item.desc, origin:'market', permission:item.permission };
+        refreshSkillPanel();
+        showToast('check', item.name+' 已安装，可在"已安装"列表中启用');
+      }
+      return;
+    }
+    const delModBtn = e.target.closest('[data-module-delete]');
+    if(delModBtn){
+      const key = delModBtn.dataset.moduleDelete;
+      const mod = MODULE_CATALOG[key];
+      delete MODULE_CATALOG[key];
+      AGENTS.forEach(a=>{ a.modules = a.modules.filter(m=>m!==key); });
+      draftAgent.modules = draftAgent.modules.filter(m=>m!==key);
+      refreshSkillPanel();
+      showToast('trash', (mod?.name||'该模块')+' 已删除，所有 Agent 上的挂载一并移除');
+      return;
+    }
+    const toggleUpload = e.target.closest('#btn-toggle-upload');
+    if(toggleUpload){ marketAddMode = marketAddMode==='upload' ? null : 'upload'; refreshSkillPanel(); return; }
+    const confirmUpload = e.target.closest('#btn-confirm-upload');
+    if(confirmUpload){
+      const nameInput = document.getElementById('upload-name');
+      const name = nameInput.value.trim();
+      if(!name){ nameInput.focus(); return; }
+      const permission = document.getElementById('upload-permission').value.trim() || '未声明权限范围，安装后请核实';
+      const desc = document.getElementById('upload-desc').value.trim() || '用户上传的技能包';
+      const id = 'upload-'+Date.now();
+      MODULE_CATALOG[id] = { name, icon:'puzzle', desc, origin:'market', permission, publisher:'我上传的 · 未验证' };
+      marketAddMode = null;
+      refreshSkillPanel();
+      showToast('sparkle', name+' 已上传并安装，可在"已安装"列表中启用');
+      return;
+    }
+    const linkBtn = e.target.closest('#btn-install-link');
+    if(linkBtn){
+      const input = document.getElementById('market-link-input');
+      const url = input.value.trim();
+      if(!url){ input.focus(); return; }
+      let host = url;
+      try{ host = new URL(url).hostname; }catch(err){}
+      const id = 'link-'+Date.now();
+      MODULE_CATALOG[id] = { name:host+' 技能包', icon:'web', desc:'通过链接安装：'+url, origin:'market', permission:'未声明权限范围，安装后请核实', publisher:'外部链接 · 未验证' };
+      refreshSkillPanel();
+      showToast('sparkle', '已按链接安装，可在"已安装"列表中启用');
+      return;
+    }
+
+    const removeSkill = e.target.closest('[data-remove-skill]');
+    if(removeSkill){
+      const val = removeSkill.dataset.removeSkill;
+      draftAgent.skills = draftAgent.skills.filter(s=>s!==val);
+      removeSkill.closest('.chip').remove();
+      return;
+    }
+
+    const nextBtn = e.target.closest('#btn-wizard-next');
+    if(nextBtn){
+      if(draftAgent.wizardStep===0 && !draftAgent.name.trim()){
+        const input = document.getElementById('f-name');
+        input.style.borderColor = 'var(--danger)';
+        input.focus();
+        showToast('shield', '请先填写 Agent 名称');
+        return;
+      }
+      draftAgent.wizardStep++;
+      refreshWizard();
+      return;
+    }
+    const prevBtn = e.target.closest('#btn-wizard-prev');
+    if(prevBtn){ draftAgent.wizardStep--; refreshWizard(); return; }
+    const jump = e.target.closest('[data-wizard-jump]');
+    if(jump){
+      const idx = Number(jump.dataset.wizardJump);
+      if(idx>0 && !draftAgent.name.trim()){ showToast('shield', '请先完成"身份"这一步'); return; }
+      draftAgent.wizardStep = idx;
+      refreshWizard();
+      return;
+    }
+
+    const saveBtn = e.target.closest('#btn-save-agent');
+    if(saveBtn){
+      draftAgent.name = draftAgent.name.trim() || '未命名 Agent';
+      draftAgent.role = draftAgent.role.trim() || '通用助理';
+      delete draftAgent.wizardStep;
+      if(draftAgent.mode==='create'){
+        draftAgent.id = 'agent-'+Date.now();
+        delete draftAgent.mode;
+        AGENTS.push(draftAgent);
+        showToast('sparkle', draftAgent.name+' 已创建并加入 Agent 中心');
+      } else {
+        const idx = AGENTS.findIndex(a=>a.id===draftAgent.id);
+        AGENTS[idx] = draftAgent;
+        showToast('check', draftAgent.name+' 的资料已更新');
+      }
+      closeModal();
+      if(State.view==='agents') renderView();
+      else updateNavCounts();
+      return;
+    }
+    const delBtn = e.target.closest('#btn-delete-agent');
+    if(delBtn){
+      AGENTS = AGENTS.filter(a=>a.id!==draftAgent.id);
+      showToast('trash', draftAgent.name+' 已从 Agent 中心移除');
+      closeModal();
+      if(State.view==='agents') renderView(); else updateNavCounts();
+      return;
+    }
+  });
+
+  modalRoot.addEventListener('keydown', (e)=>{
+    if(e.target.id==='skill-input-field' && (e.key==='Enter' || e.key===',')){
+      e.preventDefault(); addSkill(e.target.value); e.target.value='';
+    }
+  });
+}
+
+/* ============================================================
+   TASKS BOARD
+============================================================ */
+/* 工作台概览 = 状态摘要 + 协作详情（原来的"协作工作台"）合并成的一个 tab——
+   默认停在摘要，点进具体任务时原地切换成该任务的协作详情，不是另一个 tab。 */
+function renderOverview(){
+  if(State.taskDetailId){
+    const t = taskById(State.taskDetailId);
+    if(t) return renderTaskDetail(t);
+    State.taskDetailId = null;
+  }
+  return renderDashboardSummary();
+}
+
+/* 任务看板：只负责发现与认领，是独立的一个 tab，不掺杂任务详情。 */
+function renderTasks(){
+  const columns = ['open','planning','progress','review','done'];
+  const colHtml = columns.map(colKey=>{
+    const meta = STATUS_META[colKey];
+    const items = TASKS.filter(t=>t.status===colKey);
+    // 待认领列按"人工置顶优先，其余按未认领时长降序"排——紧急度可以自动累积，但人工置顶永远优先于算法排序
+    if(colKey==='open') items.sort((a,b)=> (b.pinned - a.pinned) || ((b.openHours||0)-(a.openHours||0)));
+    const cards = items.map(t=>taskCardHtml(t)).join('') || `<div class="empty-state" style="padding:24px 10px;"><span>暂无任务</span></div>`;
+    return `<div class="board-col">
+      <div class="board-col-head"><div class="dot" style="background:var(${meta.dotVar})"></div><b>${meta.label}</b><span class="n">${items.length}</span></div>
+      <div class="board-col-body">${cards}</div>
+    </div>`;
+  }).join('');
+  return `
+    <div class="section-head" style="margin-top:0;"><h2>任务看板</h2><button class="btn btn-primary btn-sm" data-action="new-task">${ic('plus')}发布任务</button></div>
+    <div class="board">${colHtml}</div>`;
+}
+
+/* 任务不认"某个具体 Agent"，只认"谁满足技能契约"——任何命中契约的 Agent 都可以互相替代
+   （里氏替换）。匹配结果永远是现算的候选名单，不是写死在任务数据里的单一答案。 */
+function computeMatchCandidates(task){
+  const required = task.requiredSkills || [];
+  if(!required.length) return [];
+  const scored = AGENTS.map(a=>{
+    const matched = required.filter(rs => a.skills.some(s=> s.includes(rs) || rs.includes(s)));
+    const baseScore = Math.round(matched.length/required.length*100);
+    // 协作痕迹机制：近期真的做过这类任务就 boost，很久没碰就 decay，权重不是永远焊死在静态技能标签上
+    const traceDelta = a.trace ? a.trace.delta : 0;
+    // 容错的隔离降权：多次被打回会临时拉低匹配权重，产出回升后会自然恢复（见 recentRejects 的增减逻辑）
+    const downweighted = a.recentRejects >= REJECT_DOWNWEIGHT_THRESHOLD;
+    const rejectDelta = downweighted ? -8 : 0;
+    const score = Math.max(0, Math.min(99, baseScore + traceDelta + rejectDelta));
+    return { agent:a, matched, score, baseScore, trace:a.trace, downweighted };
+  }).filter(c=> c.baseScore>0 && c.agent.status!=='offline');
+  scored.sort((a,b)=> b.score-a.score || (b.agent.status==='working'?-1:1));
+  return scored.slice(0,3);
+}
+/* 自主认领机制的累积式紧急度：未认领时长持续累积成强度，而不是发布时手动写死的高/中/低标签；
+   一旦被响应（认领），强度立刻归零衰减。但强度只影响"看起来多显眼"，最终排序仍留一个
+   人工强制置顶的入口——算法不能替人做"这单必须先做"的决定。 */
+function urgencyMeta(t){
+  const h = t.openHours || 0;
+  const pct = Math.max(6, Math.min(100, Math.round(h/48*100)));
+  let tier, colorVar;
+  if(h>=24){ tier='高'; colorVar='--danger'; }
+  else if(h>=8){ tier='中'; colorVar='--warning'; }
+  else { tier='低'; colorVar='--ink-tertiary'; }
+  return { pct, tier, colorVar, hours:h };
+}
+function traceHintHtml(c){
+  const bits = [];
+  if(c.trace) bits.push(`<span class="trace-hint ${c.trace.delta>0?'boost':'decay'}">${c.trace.delta>0?ic('sparkle'):ic('clock')}${esc(c.trace.label)}</span>`);
+  if(c.downweighted) bits.push(`<span class="trace-hint downweight">${ic('shield')}临时降权中</span>`);
+  return bits.join('');
+}
+function renderMatchCandidateRow(task, c, isTop){
+  // 单技能任务不用再摆一排契约 chip——旁边任务卡上早就写了需要什么技能，重复摆一遍是噪音；
+  // 只有多技能任务才需要看清"这个候选人具体覆盖了哪几项"。
+  const contractLine = task.requiredSkills.length>1
+    ? `<div class="contract-chips">${task.requiredSkills.map(rs=>{
+        const hit = c.matched.includes(rs);
+        return `<span class="contract-chip ${hit?'hit':''}">${hit?ic('check'):''}${esc(rs)}</span>`;
+      }).join('')}</div>`
+    : `<div class="hint" style="margin:0;">契约命中 ${c.matched.length}/${task.requiredSkills.length} 项</div>`;
+  return `<div class="match-candidate-row">
+    <div class="who">${avatarEl(c.agent)}<div><b>${c.agent.name}</b><span>${c.agent.role}</span></div>
+      ${isTop? '<span class="pill st-open" style="margin-left:auto">推荐</span>':''}
+    </div>
+    <div class="intent-bar${isTop?' animate':''}"><div class="fill" style="width:${c.score}%"></div></div>
+    <div class="intent-row"><span>认领意愿</span><b>${c.score}%</b></div>
+    ${traceHintHtml(c) ? `<div style="display:flex;flex-wrap:wrap;gap:5px;">${traceHintHtml(c)}</div>` : ''}
+    ${contractLine}
+    <button class="btn btn-ghost btn-sm" data-claim="${task.id}" data-claim-agent="${c.agent.id}" style="align-self:flex-end;">由此 Agent 领取</button>
+  </div>`;
+}
+function taskCardHtml(t){
+  const pMeta = PRIORITY_META[t.priority];
+  const tags = t.requiredSkills.map(s=>`<span class="skill-chip">${esc(s)}</span>`).join('');
+  const assignees = t.assignees.map(id=>avatarEl(agentById(id))).join('');
+  let matchBlock = '';
+  let urgencyRail = '';
+  if(t.status==='open'){
+    const um = urgencyMeta(t);
+    urgencyRail = `<div class="urgency-rail"><div class="fill" style="width:${um.pct}%;background:var(${um.colorVar})"></div></div>
+      <div class="urgency-row">${ic('clock')}未认领 ${um.hours} 小时 · 紧急度${um.tier}
+        ${t.pinned? '<span class="pinned-tag">'+ic('sparkle')+'人工置顶</span>' : `<button type="button" class="pin-btn" data-pin="${t.id}">${ic('sparkle')}人工置顶</button>`}
+      </div>`;
+    const candidates = computeMatchCandidates(t);
+    if(!candidates.length){
+      matchBlock = `<div class="empty-state" style="padding:10px 6px;"><span>暂无 Agent 满足技能契约</span></div>`;
+    } else {
+      const top = candidates[0];
+      const needsPack = t.requiredSkills.length > 1;
+      const interested = AGENTS.filter(a=> a.status!=='offline' && t.requiredSkills.some(rs=> a.skills.some(s=> s.includes(rs) || rs.includes(s)))).length;
+      const swarmNote = needsPack
+        ? `<div class="swarm-note">${ic('users')}需要 <b>${t.requiredSkills.length}</b> 项技能协同 · <b>${interested}</b> 位 Agent 具备相关技能</div>`
+        : '';
+      matchBlock = `
+        ${swarmNote}
+        <button type="button" class="match-banner intent-fill" data-toggle-match="${t.id}" style="--intent:${top.score}%;">
+          ${ic('sparkle')} ${top.agent.name} 认领意愿 ${top.score}%
+          <span class="match-expand-icon">${ic('chevronDown')}</span>
+        </button>
+        <div class="match-detail" id="match-detail-${t.id}" hidden>
+          ${candidates.map((c,i)=>renderMatchCandidateRow(t,c,i===0)).join('')}
+        </div>
+        <button class="btn btn-primary btn-sm claim-btn" data-claim="${t.id}" data-claim-agent="${top.agent.id}">${ic('flow')}${needsPack?'自动组队认领':'自动匹配领取'}</button>`;
+    }
+  } else {
+    matchBlock = `<div class="foot"><div class="assignees">${assignees}</div><div class="due">${ic('clock')} ${t.due}</div></div>`;
+  }
+  // 未认领任务用紧急度条替代静态优先级标签（讨论结论：连续累积值取代人工写死的高/中/低）；
+  // 一旦认领进入执行，紧急度不再有意义，改回展示静态优先级
+  const priorityBadge = t.status==='open' ? '' : `<span class="pill ${pMeta.pillClass}" style="flex-shrink:0">${pMeta.label}</span>`;
+  const teamBadge = t.assignMode==='team' && t.teamId
+    ? `<span class="team-mode-tag" style="margin-left:0;">${ic('users')}团队 · ${esc(teamById(t.teamId)?.name || '')}</span>`
+    : '';
+  return `<div class="card task-card" data-open-task="${t.id}">
+    ${urgencyRail}
+    <div style="display:flex;gap:8px;align-items:flex-start;justify-content:space-between;">
+      <div class="title">${esc(t.title)}</div>
+      ${priorityBadge}
+    </div>
+    <div class="tags">${tags}${teamBadge}</div>
+    ${matchBlock}
+  </div>`;
+}
+
+function claimTask(taskId, agentId, btn){
+  btn.disabled = true;
+  btn.textContent = '正在核对技能契约…';
+  btn.classList.add('claim-pulse');
+  setTimeout(()=>{
+    const t = taskById(taskId);
+    const agent = agentById(agentId);
+    const candidate = computeMatchCandidates(t).find(c=>c.agent.id===agentId);
+    const scoreLabel = candidate ? candidate.score : '--';
+    t.status = 'planning';
+    t.assignees = [agentId];
+    t.progressPct = 5;
+    t.plan = [
+      { title:'任务需求拆解', status:'active', agentId },
+      { title:'资料收集与执行', status:'pending', agentId },
+      { title:'产出与自查', status:'pending', agentId:null },
+    ];
+    t.logs = [{ type:'system', text:agent.name+' 以 '+scoreLabel+'% 契约命中度自主领取该任务', time:'刚刚' }];
+    showToast('sparkle', agent.name+' 已自主领取「'+t.title+'」');
+    renderView();
+  }, 900);
+}
+
+/* ============================================================
+   COLLAB WORKSPACE
+============================================================ */
+/* ---- 共享渲染片段：三种角色视图都会用到，避免重复逻辑 ---- */
+/* 挑一个"外援"加入临时攻坚小组：不找已经在这个任务里的人，优先选战绩更好的空闲/在线 Agent——
+   这不是永久调岗，只是围绕当前瓶颈临时聚一次，瓶颈解除后这份组队关系就不再存在。 */
+function pickSquadHelper(task, excludeId){
+  const candidates = AGENTS.filter(a=> a.id!==excludeId && a.status!=='offline' && !task.assignees.includes(a.id));
+  candidates.sort((a,b)=> b.stats.collabs - a.stats.collabs);
+  return candidates[0] || AGENTS.find(a=>a.id!==excludeId);
+}
+function renderPlanHtml(task){
+  const steps = task.plan;
+  return steps.map(s=>{
+    const idx = steps.indexOf(s);
+    if(s.light){
+      return `<div class="plan-step ${s.status}">
+        <div class="check">${s.status==='done'?ic('check'):'<span style="font-size:10px;font-weight:700">'+(idx+1)+'</span>'}</div>
+        <div class="body">
+          <div class="title">${esc(s.title)}</div>
+          <div class="light-unit"><div class="mark">${ic('puzzle')}</div>轻量执行单元 · 无固定身份，用完即释放</div>
+          ${s.status==='active'? `<button class="btn btn-primary btn-sm" data-complete-step="${task.id}|${idx}" style="margin-top:8px;">${ic('check')}标记为完成</button>` : ''}
+        </div>
+      </div>`;
+    }
+    const agent = s.agentId ? agentById(s.agentId) : null;
+    const squadAgents = (s.squad||[]).map(id=>agentById(id)).filter(Boolean);
+    const stepKey = task.id+'|'+idx;
+    let actions = '';
+    if(s.status==='active' && agent){
+      actions = `<button type="button" class="btn btn-primary btn-sm" data-complete-step="${task.id}|${idx}" style="margin-top:8px;">${ic('check')}标记为完成</button>
+      <div class="plan-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-handoff-step="${stepKey}">${ic('users')}换人接棒</button>
+        ${s.blocked
+          ? `<button type="button" class="btn btn-ghost btn-sm" data-dissolve-squad="${stepKey}">${ic('close')}解除攻坚小组</button>`
+          : `<button type="button" class="btn btn-ghost btn-sm" data-mark-bottleneck="${stepKey}">${ic('sparkle')}标记为卡点</button>`}
+      </div>
+      <div class="handoff-menu" id="handoff-menu-${stepKey.replace('|','-')}" hidden>
+        ${AGENTS.filter(a=>a.id!==s.agentId && a.status!=='offline').map(a=>`<button type="button" class="handoff-opt" data-handoff-to="${stepKey}|${a.id}">${avatarEl(a)}${a.name} · ${a.role}</button>`).join('')}
+      </div>`;
+    }
+    const squadBadge = s.blocked && squadAgents.length>1
+      ? `<div class="squad-badge"><div class="who">${squadAgents.map(a=>avatarEl(a)).join('')}</div><div class="text">已围绕此卡点临时组队 · ${squadAgents.map(a=>a.name).join(' + ')}</div></div>`
+      : '';
+    // 团队模式下未指派 / 未激活的步骤：团队负责人可直接给团队成员指派
+    let teamAssign = '';
+    if(task.assignMode === 'team' && task.teamId && !agent && s.status !== 'done'){
+      const team = teamById(task.teamId);
+      if(team){
+        const opts = team.memberAgentIds.map(id => {
+          const a = agentById(id); if(!a) return '';
+          return `<option value="${a.id}">${esc(a.name)} · ${esc(a.role)}</option>`;
+        }).join('');
+        teamAssign = `<div class="assign-inline">${ic('users')}<span class="hint" style="margin:0;">团队负责人指派：</span>
+          <select data-team-assign="${task.id}|${idx}"><option value="">选择成员…</option>${opts}</select></div>`;
+      }
+    }
+    return `<div class="plan-step ${s.status}">
+      <div class="check">${s.status==='done'?ic('check'):'<span style="font-size:10px;font-weight:700">'+(idx+1)+'</span>'}</div>
+      <div class="body">
+        <div class="title">${esc(s.title)}</div>
+        ${agent? `<div class="who">${avatarEl(agent)} ${agent.name} · ${agent.role}</div>` : `<div class="who">${ic('clock')} 待分配</div>`}
+        ${teamAssign}
+        ${squadBadge}
+        ${actions}
+      </div>
+    </div>`;
+  }).join('') || `<div class="empty-state" style="padding:20px;"><span>暂无规划步骤</span></div>`;
+}
+function renderLogHtml(logs){
+  return logs.map(l=>{
+    if(l.type==='system'){
+      return `<div class="log-item system"><div class="bubble"><div class="text">${esc(l.text)} · ${l.time}</div></div></div>`;
+    }
+    const agent = agentById(l.agentId);
+    const isTyping = l.type==='typing';
+    return `<div class="log-item">
+      ${avatarEl(agent)}
+      <div class="bubble">
+        <div class="who">${agent.name}<span class="role-tag">${agent.role}</span></div>
+        ${isTyping? `<span class="typing-dots"><span></span><span></span><span></span></span>` : `<div class="text">${esc(l.text)}</div>`}
+        ${l.doc? `<div class="doc-chip" data-open-doc="${l.doc}">${ic('doc')} ${esc(docById(l.doc).title)}</div>`:''}
+        ${!isTyping? `<div class="time">${l.time}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('') || `<div class="empty-state" style="padding:30px;"><span>暂无协作记录</span></div>`;
+}
+/* 产出文档面板和"评审"操作合二为一：任务进入待评审状态时，未批准的文档直接在这里露出
+   批准/打回按钮，不需要切一个"评审人视角"才能看到；已批准的文档换成一枚徽章。 */
+function renderTaskDocsHtml(t){
+  if(!t.docs.length) return `<div class="empty-state" style="padding:20px;"><span>暂无产出文档</span></div>`;
+  return t.docs.map(id=>{
+    const d = docById(id); const dm = DOC_TYPE_META[d.type];
+    const approved = d.reviewStatus==='approved';
+    const actionable = t.status==='review' && !approved;
+    return `<div class="doc-preview-card" data-open-doc="${d.id}" style="align-items:flex-start;">
+      <div class="thumb" style="background:${dm.bg};color:${dm.color}">${ic(dm.icon)}</div>
+      <div class="info" style="flex:1;"><b>${esc(d.title)}</b><span>${agentById(d.agentId).name} · ${d.date}</span></div>
+      ${approved ? `<span class="pill st-done" style="flex-shrink:0;">${ic('check')}已批准</span>` : ''}
+      ${actionable ? `<div style="display:flex;gap:6px;flex-shrink:0;" onclick="event.stopPropagation()">
+        <button class="btn btn-secondary btn-sm" data-reject-doc="${d.id}|${t.id}">打回</button>
+        <button class="btn btn-primary btn-sm" data-approve-doc="${d.id}|${t.id}">批准</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+function renderRosterHtml(assigneeIds){
+  return assigneeIds.map(id=>{
+    const a = agentById(id);
+    return `<div class="roster-item" data-open-agent="${a.id}" style="cursor:pointer">
+      ${avatarEl(a)}
+      <div class="info"><b>${a.name}</b><span>${a.role}</span></div>
+      <span class="pill ${AGENT_STATUS_META[a.status].pillClass}">${AGENT_STATUS_META[a.status].label}</span>
+    </div>`;
+  }).join('') || `<div class="empty-state" style="padding:14px;"><span>尚未分配 Agent</span></div>`;
+}
+
+/* 临时协同机制的临时领队：不是固定角色，而是当前推进节点落在谁身上，谁就临时统筹——
+   步骤流转到下一个人，领队标记自动跟着转移，任务结束后这个标记也随之消失。 */
+function currentLead(t){
+  // 团队模式的领队恒定 = 团队负责人；其它模式沿用"当前 active 步骤对应人 = 临时领队"
+  if(t.assignMode === 'team' && t.teamOwnerAgentId) return agentById(t.teamOwnerAgentId);
+  const step = t.plan.find(s=>s.status==='active');
+  return step && step.agentId ? agentById(step.agentId) : null;
+}
+/* 团队模式条：任务详情顶部展示团队 / 负责人 / 成员，明确"这是团队模式" */
+function renderTeamModeBanner(t){
+  if(t.assignMode !== 'team' || !t.teamId) return '';
+  const team = teamById(t.teamId);
+  if(!team) return '';
+  const owner = agentById(t.teamOwnerAgentId || team.ownerAgentId);
+  const memberChips = team.memberAgentIds.map(id => {
+    const a = agentById(id); if(!a) return '';
+    return `<span class="team-member-chip">${avatarEl(a)}<span>${esc(a.name)}</span></span>`;
+  }).join('');
+  return `<div class="team-mode-banner">
+    ${ic('users')}
+    <div style="flex:1;min-width:0;">
+      <b>团队模式 · ${esc(team.name)}</b>
+      <div class="hint" style="margin:2px 0 6px;">负责人 ${owner?esc(owner.name):'—'} 分配团队成员执行、汇总提交评审；评审仍走人工红线，不因此绕过。</div>
+      <div class="team-members">${memberChips}</div>
+    </div>
+  </div>`;
+}
+/* 团队模式汇总入口：当所有步骤都完成，团队负责人可以"汇总并提交评审"（推入 review 状态）。 */
+function renderTeamSummarize(t){
+  if(t.assignMode !== 'team' || t.status !== 'progress') return '';
+  const allDone = t.plan.length > 0 && t.plan.every(s => s.status === 'done');
+  if(!allDone) return '';
+  return `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+    <button class="btn btn-primary btn-sm" data-team-summarize="${t.id}">${ic('check')}汇总并提交评审</button>
+    <div class="hint" style="display:inline;margin-left:8px;">全部步骤已完成，团队负责人操作把任务推入待评审。</div>
+  </div>`;
+}
+/* 任务详情只有一份，不再区分"负责人/执行者/评审人"三套视角——规划、时间线、产出、
+   评审操作、团队名单同屏展示，谁需要什么直接在这一屏里找，不用先决定"我现在扮演谁"。 */
+function renderTaskDetail(t){
+  const lead = currentLead(t);
+  const pMeta = PRIORITY_META[t.priority], sMeta = STATUS_META[t.status];
+  return `
+    <button type="button" class="link-back" data-back-to-board>${ic('chevronRight')}返回工作台概览</button>
+    <div class="detail-head">
+      <div>
+        <h2>${esc(t.title)}</h2>
+        <div class="meta-row">
+          <span class="pill ${sMeta.pillClass}">${sMeta.label}</span>
+          <span class="pill ${pMeta.pillClass}">${pMeta.label}</span>
+          <span style="font-size:12px;color:var(--ink-tertiary);display:inline-flex;align-items:center;gap:5px;">${ic('clock')} ${t.due}</span>
+        </div>
+      </div>
+      <div class="progress-ring-wrap">
+        <div><b>${t.progressPct}%</b><span>整体进度</span></div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--ink-secondary);line-height:1.6;margin-bottom:20px;max-width:70ch;">${esc(t.desc)}</div>
+    ${renderTeamModeBanner(t)}
+    <div class="detail-grid">
+      <div>
+        <div class="card panel">
+          <div class="panel-head"><h3>${ic('puzzle')}${t.assignMode==='team'?'任务规划（团队负责人指派）':'自动任务规划'}</h3>
+            ${lead? `<span class="lead-tag">${ic('users')}${t.assignMode==='team'?'负责人':'临时领队'} · ${esc(lead.name)}</span>` : ''}
+          </div>
+          ${renderPlanHtml(t)}
+          ${renderTeamSummarize(t)}
+        </div>
+        <div class="card panel">
+          <div class="panel-head"><h3>${ic('flow')}协作时间线</h3></div>
+          <div class="log-feed">${renderLogHtml(t.logs)}</div>
+        </div>
+      </div>
+      <div>
+        <div class="card panel">
+          <div class="panel-head"><h3>${ic('doc')}产出文档${t.status==='review'?' · 待评审':''}</h3></div>
+          <div style="display:flex;flex-direction:column;gap:10px;">${renderTaskDocsHtml(t)}</div>
+        </div>
+        <div class="card panel">
+          <div class="panel-head"><h3>${ic('users')}协作团队</h3></div>
+          <div class="team-roster">${renderRosterHtml(t.assignees)}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ============================================================
+   DOCS LIBRARY
+============================================================ */
+/* 协作痕迹机制的引用强度：文档被多少条协作记录引用过，等同于这条"痕迹"被走过几次——
+   引用越多，说明这份产出越被后来者依赖，不需要谁去特意宣布它的重要性。 */
+function docCiteCount(docId){
+  return TASKS.reduce((n,t)=> n + t.logs.filter(l=>l.doc===docId).length, 0);
+}
+function docCardHtml(d){
+  const dm = DOC_TYPE_META[d.type];
+  const agent = agentById(d.agentId);
+  const task = d.taskId ? taskById(d.taskId) : null;
+  const cites = docCiteCount(d.id);
+  return `<div class="card doc-card" data-open-doc="${d.id}">
+    <div class="top">
+      <div class="filetype" style="background:${dm.bg};color:${dm.color}">${ic(dm.icon)}</div>
+      <div><div class="title">${esc(d.title)}</div><div class="task-src">${task? '来自任务 · '+esc(task.title) : dm.label}</div></div>
+    </div>
+    <div class="foot">
+      <div class="author">${avatarEl(agent)} ${agent.name}</div>
+      ${cites>0? `<span class="trail-tag">${ic('layers')}被引用 ${cites} 次</span>` : `<div class="date">${d.date}</div>`}
+    </div>
+  </div>`;
+}
+/* 默认按项目（任务）分组浏览——文档的血缘是"任务的产出"，这才是用户脑子里的主索引；
+   没有任务归属的独立产出单独归入"未归类"，不强行塞进项目树。 */
+function renderDocsByProject(){
+  const groups = TASKS.map(t=>({ task:t, docs: DOCS.filter(d=>d.taskId===t.id) })).filter(g=>g.docs.length);
+  const orphan = DOCS.filter(d=>!d.taskId);
+  let html = groups.map(g=>{
+    const sMeta = STATUS_META[g.task.status];
+    return `<div class="doc-project-group">
+      <button type="button" class="doc-project-head" data-open-task-from-docs="${g.task.id}">
+        <span class="pill ${sMeta.pillClass}">${sMeta.label}</span>
+        <b>${esc(g.task.title)}</b>
+        <span class="doc-project-count">${g.docs.length} 份文档 ${ic('chevronRight')}</span>
+      </button>
+      <div class="doc-grid">${g.docs.map(docCardHtml).join('')}</div>
+    </div>`;
+  }).join('');
+  if(orphan.length){
+    html += `<div class="doc-project-group">
+      <div class="doc-project-head" style="cursor:default;">
+        <span class="pill st-idle">未归类</span>
+        <b>不属于任何任务的独立产出</b>
+        <span class="doc-project-count">${orphan.length} 份文档</span>
+      </div>
+      <div class="doc-grid">${orphan.map(docCardHtml).join('')}</div>
+    </div>`;
+  }
+  return html || `<div class="empty-state" style="padding:40px;"><span>暂无文档</span></div>`;
+}
+/* 跨项目的检索视图——按类型筛选，服务"这周所有产出""所有 PDF"这类横切查询，
+   和上面的项目分组是同一份数据的两种视图，而不是两套系统。 */
+function renderDocsFlat(){
+  const types = [
+    {key:'all', label:'全部'}, {key:'doc', label:'Word 文档'}, {key:'pdf', label:'PDF'},
+    {key:'sheet', label:'表格'}, {key:'image', label:'视觉稿'},
+  ];
+  const chips = types.map(ty=>`<button class="filter-chip ${State.docsTypeFilter===ty.key?'active':''}" data-docs-type-filter="${ty.key}">${ty.label}</button>`).join('');
+  const list = DOCS.filter(d=> State.docsTypeFilter==='all' || d.type===State.docsTypeFilter);
+  const cards = list.map(docCardHtml).join('') || `<div class="empty-state" style="padding:40px;"><span>没有符合条件的文档</span></div>`;
+  return `<div class="toolbar">${chips}</div><div class="doc-grid">${cards}</div>`;
+}
+function renderDocs(){
+  const tabs = `<div class="role-tabs" style="margin-bottom:22px;">
+    <button type="button" class="role-tab ${State.docsView==='byProject'?'active':''}" data-docs-view="byProject">按项目分组</button>
+    <button type="button" class="role-tab ${State.docsView==='flat'?'active':''}" data-docs-view="flat">全部文档（可筛选）</button>
+  </div>`;
+  return tabs + (State.docsView==='flat' ? renderDocsFlat() : renderDocsByProject());
+}
+
+function docPreviewHtml(d){
+  const dm = DOC_TYPE_META[d.type];
+  const agent = agentById(d.agentId);
+  const task = d.taskId ? taskById(d.taskId) : null;
+  return `
+    <div class="modal-head"><h3>文档预览</h3><button class="btn-icon" data-close-modal>${ic('close')}</button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:18px;">
+        <div class="filetype" style="width:52px;height:64px;background:${dm.bg};color:${dm.color}">${ic(dm.icon)}</div>
+        <div>
+          <b style="font-size:15px;">${esc(d.title)}</b>
+          <div style="font-size:12px;color:var(--ink-tertiary);margin-top:4px;">由 ${agent.name} · ${agent.role} 产出 · ${d.date}</div>
+          ${task? `<div style="font-size:12px;color:var(--accent);margin-top:4px;cursor:pointer;" data-goto-task="${task.id}">来自任务：${esc(task.title)} ${ic('chevronRight')}</div>` : ''}
+        </div>
+      </div>
+      <div class="card" style="padding:18px 20px;background:var(--surface-sunken);border:none;">
+        <div style="font-size:11px;font-weight:650;color:var(--ink-tertiary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;">内容预览</div>
+        <div style="font-size:13px;line-height:1.75;color:var(--ink-secondary);white-space:pre-line;">${esc(d.preview)}</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" data-close-modal>关闭</button>
+      <button class="btn btn-primary" id="btn-export-doc">${ic('download')}导出副本</button>
+    </div>`;
+}
+
+/* ============================================================
+   NEW TASK MODAL
+============================================================ */
+/* 发布任务是独立的一个 tab，不是弹层——表单本身不短，铺成一整页比塞进 modal 更从容，
+   也符合"入口只在真正需要它的地方"的原则：侧边栏直达，不用先去任务看板才能找到它。 */
+function renderPublishTask(){
+  return `
+    <div class="card panel" style="max-width:640px;">
+      <div class="field"><label class="field-label">任务标题</label><input class="input" id="nt-title" placeholder="例如：10月大促预热文案"></div>
+      <div class="field"><label class="field-label">任务描述</label><textarea class="input" id="nt-desc" placeholder="描述任务目标、交付物与验收标准…"></textarea></div>
+      <div class="field">
+        <label class="field-label">所需技能</label>
+        <div class="tag-input" id="nt-tag-input"><input placeholder="输入技能后按回车" id="nt-skill-field"></div>
+      </div>
+      <div class="field">
+        <label class="field-label">优先级</label>
+        <div class="radio-card-group" id="nt-priority-group">
+          <div class="radio-card selected" data-priority="high"><b>高</b><span>紧急交付</span></div>
+          <div class="radio-card" data-priority="mid"><b>中</b><span>正常排期</span></div>
+          <div class="radio-card" data-priority="low"><b>低</b><span>不紧急</span></div>
+        </div>
+      </div>
+      <div class="field"><label class="field-label">截止时间</label><input class="input" id="nt-due" placeholder="例如：9月10日"></div>
+      <div class="field">
+        <label class="field-label">分配方式</label>
+        <div class="radio-card-group" id="nt-assign-group">
+          <div class="radio-card selected" data-assign="auto"><b>${ic('sparkle')} 自动匹配领取</b><span>放入任务看板，由 Agent 自主认领</span></div>
+          <div class="radio-card" data-assign="manual"><b>指定 Agent</b><span>直接分配给指定 Agent</span></div>
+          <div class="radio-card" data-assign="team"><b>${ic('users')} 团队模式</b><span>选定团队 + 负责人，由负责人分配团队成员执行、汇总提交评审</span></div>
+        </div>
+      </div>
+      <div class="field" id="nt-team-fields" style="margin-bottom:0;display:none;">
+        <label class="field-label">团队与负责人</label>
+        <div class="field-row">
+          <div class="field" style="margin-bottom:0;">
+            <select class="input" id="nt-team">
+              <option value="">— 选择团队 —</option>
+              ${TEAMS.map(t => `<option value="${t.id}">${esc(t.name)}（${t.memberAgentIds.length} 人）</option>`).join('')}
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <select class="input" id="nt-team-owner" disabled>
+              <option value="">— 团队负责人 —</option>
+            </select>
+          </div>
+        </div>
+        <div class="hint">选择团队后，"团队负责人"下拉默认落到团队 owner，你也可以改选该团队内的其他成员为本任务的临时负责人。</div>
+      </div>
+    </div>
+    <div style="max-width:640px;display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+      <button class="btn btn-secondary" data-view-link="tasks">取消</button>
+      <button class="btn btn-primary" id="btn-publish-task">${ic('send')}发布任务</button>
+    </div>`;
+}
+let newTaskSkills = [];
+function wirePublishTaskEvents(){
+  document.querySelectorAll('[data-priority]').forEach(el=>el.addEventListener('click', ()=>{
+    document.querySelectorAll('[data-priority]').forEach(o=>o.classList.toggle('selected', o===el));
+  }));
+  document.querySelectorAll('[data-assign]').forEach(el=>el.addEventListener('click', ()=>{
+    document.querySelectorAll('[data-assign]').forEach(o=>o.classList.toggle('selected', o===el));
+    const teamFields = document.getElementById('nt-team-fields');
+    if(teamFields) teamFields.style.display = el.dataset.assign === 'team' ? '' : 'none';
+  }));
+  const teamSelect = document.getElementById('nt-team');
+  const ownerSelect = document.getElementById('nt-team-owner');
+  if(teamSelect && ownerSelect){
+    teamSelect.addEventListener('change', () => {
+      const team = teamById(teamSelect.value);
+      ownerSelect.innerHTML = '<option value="">— 团队负责人 —</option>' +
+        (team ? team.memberAgentIds.map(id => {
+          const a = agentById(id); if(!a) return '';
+          const sel = id === team.ownerAgentId ? ' selected' : '';
+          return `<option value="${a.id}"${sel}>${esc(a.name)} · ${esc(a.role)}</option>`;
+        }).join('') : '');
+      ownerSelect.disabled = !team;
+    });
+  }
+  const field = document.getElementById('nt-skill-field');
+  if(field) field.addEventListener('keydown', e=>{
+    if(e.key==='Enter' || e.key===','){
+      e.preventDefault();
+      const val = field.value.trim();
+      if(val && !newTaskSkills.includes(val)){
+        newTaskSkills.push(val);
+        const chip = document.createElement('span'); chip.className='chip tone-purple';
+        chip.innerHTML = esc(val)+'<button>'+ic('close')+'</button>';
+        chip.querySelector('button').addEventListener('click', ()=>{ newTaskSkills = newTaskSkills.filter(s=>s!==val); chip.remove(); });
+        document.getElementById('nt-tag-input').insertBefore(chip, field);
+      }
+      field.value='';
+    }
+  });
+  const publishBtn = document.getElementById('btn-publish-task');
+  if(publishBtn) publishBtn.addEventListener('click', ()=>{
+    const title = document.getElementById('nt-title').value.trim();
+    if(!title){ document.getElementById('nt-title').focus(); return; }
+    const priority = document.querySelector('[data-priority].selected')?.dataset.priority || 'mid';
+    const assignMode = document.querySelector('[data-assign].selected')?.dataset.assign || 'auto';
+    const due = document.getElementById('nt-due').value.trim() || '待定';
+    const skills = newTaskSkills.length? newTaskSkills : ['通用协作'];
+    let best = AGENTS[0], bestScore = -1;
+    AGENTS.forEach(a=>{
+      const overlap = a.skills.filter(s=> skills.some(rs=> s.includes(rs) || rs.includes(s))).length;
+      if(overlap > bestScore){ bestScore = overlap; best = a; }
+    });
+    const score = Math.min(98, 78 + bestScore*7 + Math.floor(Math.random()*6));
+    // 团队模式：读取团队 + 负责人；plan 里的步骤先按标准三步生成，agentId 留空由负责人指派
+    let teamId = null, teamOwnerAgentId = null, teamOwner = null, team = null;
+    if(assignMode === 'team'){
+      teamId = document.getElementById('nt-team').value;
+      teamOwnerAgentId = document.getElementById('nt-team-owner').value;
+      team = teamId ? teamById(teamId) : null;
+      if(!team){ showToast('shield', '请先选择团队'); return; }
+      if(!teamOwnerAgentId){ showToast('shield', '请选择团队负责人'); return; }
+      teamOwner = agentById(teamOwnerAgentId);
+    }
+    const task = {
+      id:'t-'+Date.now(), title,
+      status: assignMode==='auto' ? 'open' : 'planning',
+      priority,
+      desc: document.getElementById('nt-desc').value.trim() || '暂无详细描述。',
+      requiredSkills: skills, due: due+'截止',
+      assignees: assignMode==='auto' ? []
+               : assignMode==='team' ? [teamOwnerAgentId]
+               : [best.id],
+      progressPct: 0, matchAgentId: best.id, matchScore: score,
+      assignMode, teamId, teamOwnerAgentId,
+      plan:
+        assignMode==='manual' ? [{title:'任务需求拆解', status:'active', agentId:best.id}] :
+        assignMode==='team' ? [
+          { title:'需求拆解与关键信息收集', status:'active', agentId:teamOwnerAgentId },
+          { title:'团队成员分工执行', status:'pending', agentId:null },
+          { title:'汇总与联合评审前自查', status:'pending', agentId:teamOwnerAgentId },
+        ] : [],
+      logs:
+        assignMode==='manual' ? [{type:'system', text:'任务已直接分配给 '+best.name, time:'刚刚'}] :
+        assignMode==='team' ? [{type:'system', text:'任务已交给团队「'+team.name+'」·负责人 '+teamOwner.name+'——由负责人分配团队成员执行', time:'刚刚'}] :
+        [],
+      docs:[], openHours:0, pinned:false
+    };
+    TASKS.unshift(task);
+    const toastMsg =
+      assignMode==='auto' ? '，等待 Agent 自主领取' :
+      assignMode==='team' ? '，已交给团队「'+team.name+'」·负责人 '+teamOwner.name :
+      '，已分配给 '+best.name;
+    showToast('sparkle', '任务「'+title+'」已发布'+toastMsg);
+    newTaskSkills = [];
+    switchView('tasks');
+  });
+}
+
+/* ============================================================
+   MECHANISM MODAL — 按场景拆解的协作机制矩阵
+   （产品里只保留落地结论，统一用功能名：自主认领机制 / 临时协同机制 / 协作痕迹机制；
+   设计取舍的完整来源见 docs/协作机制设计.md）
+============================================================ */
+const MECH_MATRIX = [
+  { scene:'任务发现与认领', where:'任务看板',
+    use:[['自主认领机制','多候选人"认领意愿"动态累积，替代一次性算出的静态匹配度'],['协作痕迹机制','匹配权重按历史完成痕迹自我强化 / 久未接触则自然衰减']],
+    land:'把"契约匹配度 96%"改成动态意愿强度条，多个 Agent 同屏展示认领意愿；系统记录 Agent 在各类任务上的历史完成频率，权重随时间自然衰减。',
+    avoid:[['论资排辈式的经验优先','任务看板面向开放候选池，套用会让新 Agent 永远抢不到任务，丧失去中心化竞争的意义']] },
+  { scene:'紧急度 / 优先级呈现', where:'任务看板',
+    use:[['自主认领机制','连续衰减 / 累积值，替代静态的"高 / 中 / 低"标签']],
+    land:'未认领时间越长，任务卡片的紧急强度越高（视觉上逐渐变浓）；一旦被响应，强度随之衰减。',
+    avoid:[['纯规则自动裁决','紧急度不能让算法完全说了算，必须保留人工一键强制插单 / 置顶的入口']] },
+  { scene:'复杂任务的角色分配', where:'任务详情',
+    use:[['临时协同机制','步骤支持实时接力补位，卡壳时可换人接手当前进度'],['协作痕迹机制','持续阻塞下游的瓶颈处，临时拉起协作小组集中攻克，解除后自动解散']],
+    land:'给执行中的步骤加"换人接棒"操作；识别到某步骤持续阻塞下游多个子任务时，自动组建临时攻坚小组，问题解除后小组自动解散。',
+    avoid:[['开放式竞争认领','执行阶段需要无缝交接和连续性，不该在中途重新引发多个 Agent 抢一个进行中步骤，会打乱协作节奏']] },
+  { scene:'Agent 身份与信任模型', where:'Agent 中心',
+    use:[['临时协同机制','核心协作角色的协调权靠战绩（完成数 / 评分 / 协作次数）积累，而非预设职位'],['协作痕迹机制','低风险机械子任务（格式转换、数据清洗、简单校验）可用无状态、用完即弃的"轻量执行单元"']],
+    land:'协调权随 stats 变化可在核心角色间转移；给机械类子任务放开轻量匿名执行位，不强制走完整 Agent 建档流程。',
+    avoid:[['个体可随意替换的假设','不能套在核心协作角色和审查类角色上，代码审查、安全评估必须保留固定身份与可追溯记录，不能做成随时替换的无名执行单元']] },
+  { scene:'团队 / 组织规模扩展', where:'预留',
+    use:[['临时协同机制','规模超过阈值后"分裂"出新工作区，而非无限塞人']],
+    land:'某类项目积累到一定量后，允许把相关 Agent 拆分成独立子工作区（当前规模尚小，先记录方向，暂不做成界面功能）。',
+    avoid:[['大规模匿名冗余容错','当前是个位数 Agent 的小规模场景，硬套大规模统计冗余逻辑没有意义']] },
+  { scene:'通讯与状态广播', where:'全局',
+    use:[['临时协同机制','远距离粗信号（在线状态点）+ 近距离细信号（详细日志）分层'],['协作痕迹机制','活动日志兼具隐式激励信号功能——闲置 Agent 会被时间线里的成功案例"带动"']],
+    land:'侧边栏 / Agent 卡片的状态点是粗信号，任务详情里的协作时间线是细信号，两层信息密度分开呈现，不混在一起。',
+    avoid:[['复杂结构化广播协议','不需要给每条状态更新都编码方向 / 距离 / 质量三个维度，日常状态广播用不到这么复杂的协议']] },
+  { scene:'容错与异常处理', where:'全局',
+    use:[['协作痕迹机制','反复失败的 Agent / 流程可被临时"隔离降权"，同时保留恢复通道']],
+    land:'多次被打回或长期停滞的 Agent，自动降低其在新任务匹配中的权重（临时隔离，不是永久拉黑）；产出质量回升后权重自动恢复。',
+    avoid:[['默契规避式处理','异常处理不能靠大家默契避开，必须有显式的隔离和恢复机制留痕，否则问题会被悄悄掩盖而不是真正解决']] },
+];
+function mechMatrixRowHtml(r, i){
+  const useHtml = r.use.map(([m,t])=>`<div class="matrix-line use"><span class="tag">可用 · ${esc(m)}</span>${esc(t)}</div>`).join('');
+  const avoidHtml = r.avoid.map(([m,t])=>`<div class="matrix-line avoid"><span class="tag">不用 · ${esc(m)}</span>${esc(t)}</div>`).join('');
+  return `<div class="matrix-row">
+    <div class="scene"><span class="idx">${String(i+1).padStart(2,'0')}</span><b>${esc(r.scene)}</b><span class="where">${esc(r.where)}</span></div>
+    ${useHtml}
+    <div class="matrix-land">${ic('chevronRight')}${esc(r.land)}</div>
+    ${avoidHtml}
+  </div>`;
+}
+/* 协作流程图：一个任务从发布到完成，经过哪几层机制、在哪一步必须停下来等人——
+   比起分场景的文字矩阵，这张图直接把"机制在时间线上的先后顺序"画出来。 */
+function mechFlowDiagramHtml(){
+  return `<svg viewBox="0 0 640 200" style="width:100%;height:auto;display:block;" role="img" aria-label="任务从发布到完成的协作流程图">
+    <defs>
+      <marker id="mech-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink-tertiary)"/>
+      </marker>
+      <marker id="mech-arrow-trace" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" style="fill:var(--success)"/>
+      </marker>
+    </defs>
+    <line x1="112" y1="65" x2="136" y2="65" style="stroke:var(--ink-tertiary);stroke-width:1.5" marker-end="url(#mech-arrow)"/>
+    <line x1="240" y1="65" x2="264" y2="65" style="stroke:var(--ink-tertiary);stroke-width:1.5" marker-end="url(#mech-arrow)"/>
+    <line x1="368" y1="65" x2="392" y2="65" style="stroke:var(--ink-tertiary);stroke-width:1.5" marker-end="url(#mech-arrow)"/>
+    <line x1="496" y1="65" x2="520" y2="65" style="stroke:var(--ink-tertiary);stroke-width:1.5" marker-end="url(#mech-arrow)"/>
+    <path d="M572,92 C572,152 190,152 188,92" style="fill:none;stroke:var(--success);stroke-width:1.4;stroke-dasharray:3 3" marker-end="url(#mech-arrow-trace)"/>
+    <text x="380" y="172" text-anchor="middle" style="font-size:10.5px;fill:var(--success);font-weight:600">协作痕迹持续反馈到认领权重</text>
+    <rect x="10" y="40" width="100" height="50" rx="10" style="fill:var(--neutral-soft)"/>
+    <text x="60" y="70" text-anchor="middle" style="font-size:12px;fill:var(--ink);font-weight:600">任务发布</text>
+    <rect x="138" y="40" width="100" height="50" rx="10" style="fill:var(--accent-soft)"/>
+    <text x="188" y="63" text-anchor="middle" style="font-size:12px;fill:var(--accent);font-weight:700">自主认领</text>
+    <text x="188" y="78" text-anchor="middle" style="font-size:9.5px;fill:var(--accent)">技能契约匹配</text>
+    <rect x="266" y="40" width="100" height="50" rx="10" style="fill:var(--purple-soft)"/>
+    <text x="316" y="63" text-anchor="middle" style="font-size:12px;fill:var(--purple);font-weight:700">执行协同</text>
+    <text x="316" y="78" text-anchor="middle" style="font-size:9.5px;fill:var(--purple)">换人接棒 / 攻坚小组</text>
+    <rect x="394" y="40" width="100" height="50" rx="10" style="fill:var(--danger-soft);stroke:var(--danger);stroke-width:1.3;stroke-dasharray:2 2"/>
+    <text x="444" y="63" text-anchor="middle" style="font-size:12px;fill:var(--danger);font-weight:700">人工评审</text>
+    <text x="444" y="78" text-anchor="middle" style="font-size:9.5px;fill:var(--danger)">唯一不可自动化</text>
+    <rect x="522" y="40" width="100" height="50" rx="10" style="fill:var(--success-soft)"/>
+    <text x="572" y="70" text-anchor="middle" style="font-size:12px;fill:var(--success);font-weight:600">完成</text>
+  </svg>`;
+}
+function mechanismModalHtml(){
+  const rows = MECH_MATRIX.map(mechMatrixRowHtml).join('');
+  return `
+    <div class="modal-head"><h3>协作机制说明</h3><button class="btn-icon" data-close-modal>${ic('close')}</button></div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--ink-tertiary);line-height:1.7;margin-bottom:6px;">一个任务从发布到完成，会经过三层机制：认领靠动态意愿而不是派工，执行中的协同关系是临时的、随节点转移，全程留下的协作痕迹又反过来影响下一次的认领权重。三层机制分工不同，不是同一件事的三种叫法。</p>
+      <div class="card" style="padding:14px 10px 6px;margin-bottom:16px;background:var(--surface-sunken);border:none;">${mechFlowDiagramHtml()}</div>
+      ${rows}
+      <div class="mech-redline">
+        ${ic('shield')}
+        <div><b>唯一的红线：质量把关与评审</b><span>以上机制在这一环节都不适用——自动多数通过、纯规则自动执行都会丧失可控性和可追溯性。评审环节的显式打回 / 批准机制永远保留，不会被任何自动化逻辑接管。</span></div>
+      </div>
+      <div class="mech-quote">
+        <div class="q">"其身正，不令而行"</div>
+        <div class="a">《论语》· 不必发号施令，事情依然照样成了 —— 这正是"不令"这三个字的由来</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" data-close-modal>${ic('check')}知道了</button>
+    </div>`;
+}
+
+/* ============================================================
+   模型接入（AI API 提供方配置）
+   Agent 的可选"底层模型"来自这里配置的提供方——增删改一个提供方，会即时改变
+   Agent 创建向导里能选到的模型集合。所有 API Key / 连接测试均为原型演示态。
+============================================================ */
+function providerCardHtml(p){
+  const tm = PROVIDER_TYPE_META[p.type];
+  const sm = PROVIDER_STATUS_META[p.status];
+  const modelChips = p.models.length
+    ? p.models.map(m=>`<span class="skill-chip">${esc(m.label)}${m.ctx&&m.ctx!=='—'?' · '+m.ctx:''}</span>`).join('')
+    : '<span class="hint" style="margin:0;">尚未发现模型，点"测试连接"拉取</span>';
+  return `<div class="card provider-card ${p.enabled?'':'is-disabled'}">
+    <div class="provider-head">
+      <div class="provider-title">
+        <b>${esc(p.name)}</b>
+        <span class="origin-tag tone-${tm.tone}">${tm.label}</span>
+        <span class="pill ${sm.pillClass}">${sm.label}</span>
+      </div>
+      <label class="switch"><input type="checkbox" data-provider-toggle="${p.id}" ${p.enabled?'checked':''}><span class="track"></span><span class="thumb"></span></label>
+    </div>
+    <div class="provider-meta">
+      <div class="provider-meta-row">${ic('web')}<span class="k">Base URL</span><code>${esc(p.baseUrl)}</code></div>
+      <div class="provider-meta-row">${ic('shield')}<span class="k">API Key</span><code>${esc(p.apiKeyMasked)}</code></div>
+    </div>
+    <div class="provider-models">${modelChips}</div>
+    <div class="provider-foot">
+      <button class="btn btn-ghost btn-sm" data-provider-test="${p.id}">${ic('plug')}测试连接</button>
+      <button class="btn btn-ghost btn-sm" data-provider-edit="${p.id}">${ic('pencil')}编辑</button>
+      <button class="btn btn-ghost btn-sm" data-provider-delete="${p.id}" style="color:var(--danger);margin-left:auto;">${ic('trash')}删除</button>
+    </div>
+  </div>`;
+}
+function renderProviders(){
+  const cards = PROVIDERS.map(providerCardHtml).join('') || `<div class="empty-state" style="padding:40px;"><span>还没有配置任何模型服务</span></div>`;
+  const connected = PROVIDERS.filter(p=>p.enabled && p.status==='connected').length;
+  const modelTotal = availableModels().length;
+  return `
+    <div class="section-head" style="margin-top:0;">
+      <h2>模型接入</h2>
+      <button class="btn btn-primary btn-sm" data-provider-add>${ic('plus')}添加模型服务</button>
+    </div>
+    <div class="hint" style="margin:-4px 0 16px;">已连接 ${connected} 个提供方 · 共 ${modelTotal} 个模型可供 Agent 选择。Agent 创建向导里的"底层模型"从这里的已连接服务实时读取。</div>
+    <div class="mock-note" style="margin-bottom:16px;">${ic('shield')}原型演示：API Key 仅本地内存态、界面上一律脱敏展示；"测试连接"不会真的请求外部 API，而是按服务类型返回一批示意模型。接入真实后端后，这里才会发起真实鉴权与模型列表拉取。</div>
+    <div class="provider-grid">${cards}</div>`;
+}
+
+let draftProvider = null;
+function providerModalHtml(p){
+  const typeCards = Object.entries(PROVIDER_TYPE_META).map(([key,m])=>`<div class="radio-card ${p.type===key?'selected':''}" data-provider-type="${key}"><b>${m.label}</b><span>${m.hint}</span></div>`).join('');
+  const discovered = p._discovered
+    ? `<div class="field"><label class="field-label">已发现模型（${p._discovered.length}）</label>
+        <div class="provider-models">${p._discovered.map(m=>`<span class="skill-chip">${esc(m.label)}${m.ctx&&m.ctx!=='—'?' · '+m.ctx:''}</span>`).join('')}</div></div>`
+    : '';
+  return `
+    <div class="modal-head"><h3>${p.mode==='create'?'添加模型服务':'编辑模型服务'}</h3><button class="btn-icon" data-close-modal>${ic('close')}</button></div>
+    <div class="modal-body">
+      <div class="field"><label class="field-label">服务名称</label><input class="input" id="pv-name" value="${esc(p.name)}" placeholder="例如：Anthropic 官方 / 公司网关"></div>
+      <div class="field">
+        <label class="field-label">服务类型</label>
+        <div class="radio-card-group" id="pv-type-group">${typeCards}</div>
+      </div>
+      <div class="field"><label class="field-label">Base URL</label><input class="input" id="pv-baseurl" value="${esc(p.baseUrl)}" placeholder="https://api.example.com/v1"></div>
+      <div class="field"><label class="field-label">API Key</label><input class="input" id="pv-apikey" type="password" value="${esc(p._rawKey||'')}" placeholder="sk-…（仅本地内存态，脱敏保存）"></div>
+      <div class="field" style="margin-bottom:0;">
+        <button class="btn btn-secondary btn-sm" id="pv-test">${ic('plug')}测试连接并拉取模型</button>
+        <span class="pill ${PROVIDER_STATUS_META[p.status].pillClass}" style="margin-left:8px;">${PROVIDER_STATUS_META[p.status].label}</span>
+      </div>
+      ${discovered}
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" data-close-modal>取消</button>
+      <button class="btn btn-primary" id="pv-save">${ic('check')}${p.mode==='create'?'保存并接入':'保存修改'}</button>
+    </div>`;
+}
+function openProviderModal(providerId){
+  const src = providerId ? providerById(providerId) : null;
+  draftProvider = src
+    ? { ...JSON.parse(JSON.stringify(src)), mode:'edit', _rawKey:'', _discovered:null }
+    : { id:'prov-'+Date.now(), mode:'create', name:'', type:'openai', baseUrl:'', apiKeyMasked:'', _rawKey:'', enabled:true, status:'untested', models:[], _discovered:null };
+  openModal(providerModalHtml(draftProvider));
+  wireProviderModal();
+}
+function wireProviderModal(){
+  const modalRoot = document.getElementById('modal-container');
+  function refresh(){ modalRoot.innerHTML = providerModalHtml(draftProvider); makeKeyboardClickable(modalRoot); }
+  modalRoot.addEventListener('input', (e)=>{
+    if(e.target.id==='pv-name') draftProvider.name = e.target.value;
+    else if(e.target.id==='pv-baseurl') draftProvider.baseUrl = e.target.value;
+    else if(e.target.id==='pv-apikey') draftProvider._rawKey = e.target.value;
+  });
+  modalRoot.addEventListener('click', (e)=>{
+    if(e.target.closest('[data-close-modal]')){ closeModal(); return; }
+    const typeOpt = e.target.closest('[data-provider-type]');
+    if(typeOpt){ draftProvider.type = typeOpt.dataset.providerType; modalRoot.querySelectorAll('[data-provider-type]').forEach(o=>o.classList.toggle('selected', o===typeOpt)); return; }
+    if(e.target.closest('#pv-test')){
+      const btn = e.target.closest('#pv-test'); btn.disabled = true; btn.textContent = '测试中…';
+      setTimeout(()=>{
+        // 演示态：按类型返回一批示意模型，并把状态置为已连接
+        draftProvider._discovered = SAMPLE_DISCOVERY[draftProvider.type].map((m,i)=>({ id:draftProvider.id+'-m'+i, label:m.label, hint:m.hint, ctx:m.ctx }));
+        draftProvider.status = 'connected';
+        refresh();
+        showToast('check', '连接成功，发现 '+draftProvider._discovered.length+' 个模型（演示数据）');
+      }, 800);
+      return;
+    }
+    if(e.target.closest('#pv-save')){
+      const name = (draftProvider.name||'').trim();
+      if(!name){ document.getElementById('pv-name').focus(); showToast('shield','请先填写服务名称'); return; }
+      draftProvider.name = name;
+      draftProvider.baseUrl = (draftProvider.baseUrl||'').trim() || '（未填写）';
+      // 脱敏：只保留前后几位
+      const k = (draftProvider._rawKey||'').trim();
+      draftProvider.apiKeyMasked = k ? (k.slice(0,6)+'••••••••'+k.slice(-4)) : (draftProvider.apiKeyMasked || '（无需密钥）');
+      if(draftProvider._discovered){ draftProvider.models = draftProvider._discovered; }
+      const clean = { id:draftProvider.id, name:draftProvider.name, type:draftProvider.type, baseUrl:draftProvider.baseUrl, apiKeyMasked:draftProvider.apiKeyMasked, enabled:draftProvider.enabled!==false, status:draftProvider.status, models:draftProvider.models };
+      const idx = PROVIDERS.findIndex(p=>p.id===clean.id);
+      if(idx>-1){ PROVIDERS[idx] = clean; showToast('check', clean.name+' 已更新'); }
+      else { PROVIDERS.push(clean); showToast('sparkle', clean.name+' 已接入'); }
+      closeModal();
+      if(State.view==='providers') renderView(); else updateNavCounts();
+      return;
+    }
+  });
+}
+
+/* ============================================================
+   MODAL / TOAST HELPERS
+============================================================ */
+function openModal(html, size=''){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal-container');
+  modal.className = 'modal' + (size==='wide' ? ' wide':'');
+  modal.innerHTML = html;
+  overlay.classList.add('open');
+  document.querySelectorAll('[data-close-modal]').forEach(b=>b.addEventListener('click', closeModal));
+  makeKeyboardClickable(modal);
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+let toastId = 0;
+function showToast(icon, text){
+  const stack = document.getElementById('toast-stack');
+  const id = 'toast-'+(toastId++);
+  const el = document.createElement('div');
+  el.className = 'toast'; el.id = id;
+  el.innerHTML = `<div class="icon-badge">${ic(icon)}</div><div>${esc(text)}</div>`;
+  stack.appendChild(el);
+  setTimeout(()=>{ el.style.animation = 'toastOut .3s var(--ease) forwards'; setTimeout(()=>el.remove(), 300); }, 3200);
+}
+
+/* ============================================================
+   EVENT WIRING (per-view + global)
+============================================================ */
+/* Make non-native clickable elements (div-based cards/chips) keyboard operable:
+   focusable via Tab, and activatable via Enter/Space — required for visible-focus to mean anything. */
+const KEYBOARD_CLICKABLE_SELECTOR = '[data-open-agent],[data-open-team],[data-open-task],[data-open-doc],[data-claim],[data-agent-filter],[data-collab-pref],[data-priority],[data-assign],[data-view-link],[data-action],[data-emoji],[data-module-toggle-card],[data-model],[data-effort],[data-wizard-jump],[data-provider-type]';
+function makeKeyboardClickable(root){
+  root.querySelectorAll(KEYBOARD_CLICKABLE_SELECTOR).forEach(el=>{
+    if(el.tagName==='BUTTON' || el.tagName==='A' || el.tagName==='INPUT') return;
+    if(!el.hasAttribute('tabindex')) el.setAttribute('tabindex','0');
+    if(!el.hasAttribute('role')) el.setAttribute('role','button');
+    if(el.dataset.kbBound) return;
+    el.dataset.kbBound = '1';
+    el.addEventListener('keydown', e=>{
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); el.click(); }
+    });
+  });
+}
+
+function wireViewEvents(){
+  document.querySelectorAll('[data-open-agent]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); openAgentDrawer(el.dataset.openAgent); }));
+  document.querySelectorAll('[data-open-task]').forEach(el=>el.addEventListener('click', (e)=>{
+    if(e.target.closest('[data-claim]') || e.target.closest('[data-pin]')) return;
+    const t = taskById(el.dataset.openTask);
+    if(t.status==='open') return;
+    State.taskDetailId = t.id; switchView('overview');
+  }));
+  document.querySelectorAll('[data-back-to-board]').forEach(el=>el.addEventListener('click', ()=>{ State.taskDetailId = null; renderView(); }));
+  document.querySelectorAll('[data-claim]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); claimTask(el.dataset.claim, el.dataset.claimAgent, el); }));
+  document.querySelectorAll('[data-toggle-match]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const panel = document.getElementById('match-detail-'+el.dataset.toggleMatch);
+    if(!panel) return;
+    panel.hidden = !panel.hidden;
+    el.classList.toggle('open', !panel.hidden);
+  }));
+  document.querySelectorAll('[data-agent-filter]').forEach(el=>el.addEventListener('click', ()=>{ State.agentFilter = el.dataset.agentFilter; renderView(); }));
+  document.querySelectorAll('[data-pin]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const t = taskById(el.dataset.pin);
+    t.pinned = true;
+    showToast('sparkle', '已人工置顶「'+t.title+'」——人工优先级永远盖过算法排序');
+    renderView();
+  }));
+  document.getElementById('create-agent-card')?.addEventListener('click', ()=>openAgentDrawer(null));
+  document.getElementById('create-team-card')?.addEventListener('click', ()=>openTeamDrawer(null));
+  document.querySelectorAll('[data-open-team]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); openTeamDrawer(el.dataset.openTeam); }));
+  document.querySelectorAll('[data-complete-step]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const [taskId, idxStr] = el.dataset.completeStep.split('|');
+    const t = taskById(taskId); const idx = Number(idxStr);
+    const step = t.plan[idx]; if(!step) return;
+    step.status = 'done';
+    const agent = step.agentId ? agentById(step.agentId) : null;
+    const who = agent ? agent.name : '轻量执行单元';
+    t.logs.push(agent ? { agentId: agent.id, text:'已完成「'+step.title+'」', time:'刚刚' } : { type:'system', text:'轻量执行单元已完成「'+step.title+'」，随即释放', time:'刚刚' });
+    // 步骤是一条共享流水线，不再按"这是不是同一个 Agent 的下一步"筛选——顺序推进到下一步就行，
+    // 轻量执行单元没有 agentId 也照样能被激活。
+    const next = t.plan[idx+1];
+    if(next && next.status==='pending') next.status = 'active';
+    const doneCount = t.plan.filter(s=>s.status==='done').length;
+    t.progressPct = Math.round(doneCount/t.plan.length*100);
+    if(doneCount===t.plan.length){ t.status='review'; showToast('check', who+' 已完成全部步骤，任务转入待评审'); }
+    else showToast('check', who+' 已完成「'+step.title+'」');
+    renderView();
+  }));
+  document.querySelectorAll('[data-handoff-step]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const menu = document.getElementById('handoff-menu-'+el.dataset.handoffStep.replace('|','-'));
+    if(menu) menu.hidden = !menu.hidden;
+  }));
+  document.querySelectorAll('[data-handoff-to]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const [taskId, idxStr, agentId] = el.dataset.handoffTo.split('|');
+    const t = taskById(taskId); const idx = Number(idxStr); const step = t.plan[idx];
+    if(!step) return;
+    const from = agentById(step.agentId); const to = agentById(agentId);
+    step.agentId = agentId;
+    if(step.squad) step.squad = [agentId, ...step.squad.filter(id=>id!==from.id)];
+    if(!t.assignees.includes(agentId)) t.assignees.push(agentId);
+    t.logs.push({ type:'system', text:from.name+' 已把「'+step.title+'」接力交给 '+to.name+'，当前进度保留', time:'刚刚' });
+    showToast('users', '「'+step.title+'」已换人接棒给 '+to.name);
+    renderView();
+  }));
+  document.querySelectorAll('[data-mark-bottleneck]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const [taskId, idxStr] = el.dataset.markBottleneck.split('|');
+    const t = taskById(taskId); const idx = Number(idxStr); const step = t.plan[idx];
+    if(!step) return;
+    const helper = pickSquadHelper(t, step.agentId);
+    step.blocked = true;
+    step.squad = [step.agentId, helper.id];
+    if(!t.assignees.includes(helper.id)) t.assignees.push(helper.id);
+    const downstream = Math.max(1, t.plan.length-idx-1);
+    t.logs.push({ type:'system', text:'「'+step.title+'」持续阻塞下游 '+downstream+' 个子任务，已自动拉起临时攻坚小组：'+agentById(step.agentId).name+' + '+helper.name, time:'刚刚' });
+    showToast('users', helper.name+' 已临时加入攻坚「'+step.title+'」');
+    renderView();
+  }));
+  document.querySelectorAll('[data-dissolve-squad]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const [taskId, idxStr] = el.dataset.dissolveSquad.split('|');
+    const t = taskById(taskId); const idx = Number(idxStr); const step = t.plan[idx];
+    if(!step) return;
+    step.blocked = false;
+    step.squad = [step.agentId];
+    t.logs.push({ type:'system', text:'「'+step.title+'」卡点已解除，临时攻坚小组自动解散', time:'刚刚' });
+    showToast('check', '临时攻坚小组已解散');
+    renderView();
+  }));
+  // 团队模式：负责人给团队成员指派某个步骤
+  document.querySelectorAll('[data-team-assign]').forEach(el=>el.addEventListener('change', (e)=>{
+    e.stopPropagation();
+    const agentId = el.value; if(!agentId) return;
+    const [taskId, idxStr] = el.dataset.teamAssign.split('|');
+    const t = taskById(taskId); const idx = Number(idxStr); const step = t.plan[idx];
+    const agent = agentById(agentId); if(!step || !agent) return;
+    step.agentId = agentId;
+    if(step.status === 'pending' && !t.plan.some(x => x.status === 'active')) step.status = 'active';
+    if(!t.assignees.includes(agentId)) t.assignees.push(agentId);
+    if(t.status === 'planning') t.status = 'progress';
+    const owner = agentById(t.teamOwnerAgentId || '');
+    t.logs.push({ type:'system', text:(owner?owner.name+' ':'')+'（团队负责人）已把「'+step.title+'」指派给 '+agent.name, time:'刚刚' });
+    showToast('users', '「'+step.title+'」已指派给 '+agent.name);
+    renderView();
+  }));
+  // 团队模式：全部步骤完成后，负责人"汇总并提交评审"（推入 review）
+  document.querySelectorAll('[data-team-summarize]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const t = taskById(el.dataset.teamSummarize); if(!t) return;
+    if(!t.plan.every(s => s.status === 'done')){ showToast('shield', '还有未完成的步骤'); return; }
+    t.status = 'review';
+    const owner = agentById(t.teamOwnerAgentId || '');
+    t.logs.push({ type:'system', text:(owner?owner.name+' ':'')+'（团队负责人）已汇总产出并提交评审', time:'刚刚' });
+    showToast('check', '任务已汇总提交评审——等待评审人（人工）批准 / 打回');
+    renderView();
+  }));
+  document.querySelectorAll('[data-approve-doc]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const [docId, taskId] = el.dataset.approveDoc.split('|');
+    const d = docById(docId); const t = taskById(taskId); const author = agentById(d.agentId);
+    d.reviewStatus = 'approved';
+    t.logs.push({ type:'system', text:'评审人已批准「'+d.title+'」', time:'刚刚' });
+    // 批准是唯一改变隔离状态的动作，且永远由人工触发——系统只负责把这个人工判断沉淀成权重变化
+    if(author.recentRejects>0){
+      author.recentRejects -= 1;
+      if(author.recentRejects < REJECT_DOWNWEIGHT_THRESHOLD) t.logs.push({ type:'system', text:author.name+' 产出质量回升，匹配权重正在自动恢复', time:'刚刚' });
+    }
+    const allApproved = t.docs.every(id=> docById(id).reviewStatus==='approved');
+    if(t.status==='review' && allApproved){ t.status='done'; t.progressPct=100; showToast('check', '「'+d.title+'」已批准，全部产出通过，任务标记为已完成'); }
+    else showToast('check', '「'+d.title+'」已批准'+(t.status==='review'?'，还有产出待评审':''));
+    renderView();
+  }));
+  document.querySelectorAll('[data-reject-doc]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const [docId, taskId] = el.dataset.rejectDoc.split('|');
+    const d = docById(docId); const t = taskById(taskId); const author = agentById(d.agentId);
+    author.recentRejects += 1;
+    t.logs.push({ type:'system', text:'评审人已打回「'+d.title+'」，等待负责 Agent 修改', time:'刚刚' });
+    if(author.recentRejects===REJECT_DOWNWEIGHT_THRESHOLD) t.logs.push({ type:'system', text:author.name+' 近期多次被打回，匹配权重已临时下调（非永久，产出回升后自动恢复）', time:'刚刚' });
+    showToast('trash', '已打回「'+d.title+'」，已通知负责 Agent');
+    renderView();
+  }));
+  document.querySelectorAll('[data-open-doc]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    openModal(docPreviewHtml(docById(el.dataset.openDoc)));
+    document.getElementById('btn-export-doc')?.addEventListener('click', ()=>{ showToast('download', '已生成导出任务（原型演示，未产生真实文件）'); });
+    document.querySelector('[data-goto-task]')?.addEventListener('click', function(){ State.taskDetailId = this.dataset.gotoTask; closeModal(); switchView('overview'); });
+  }));
+  document.querySelectorAll('[data-view-link]').forEach(el=>el.addEventListener('click', ()=>{ State.taskDetailId = null; switchView(el.dataset.viewLink); }));
+  document.querySelectorAll('[data-docs-view]').forEach(el=>el.addEventListener('click', ()=>{ State.docsView = el.dataset.docsView; renderView(); }));
+  document.querySelectorAll('[data-docs-type-filter]').forEach(el=>el.addEventListener('click', ()=>{ State.docsTypeFilter = el.dataset.docsTypeFilter; renderView(); }));
+  document.querySelectorAll('[data-open-task-from-docs]').forEach(el=>el.addEventListener('click', ()=>{ State.taskDetailId = el.dataset.openTaskFromDocs; switchView('overview'); }));
+  document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(el.dataset.action==='new-task'){ newTaskSkills = []; switchView('publish-task'); }
+  }));
+  // 模型接入页
+  document.querySelectorAll('[data-provider-add]').forEach(el=>el.addEventListener('click', ()=>openProviderModal(null)));
+  document.querySelectorAll('[data-provider-edit]').forEach(el=>el.addEventListener('click', ()=>openProviderModal(el.dataset.providerEdit)));
+  document.querySelectorAll('[data-provider-toggle]').forEach(el=>el.addEventListener('change', ()=>{
+    const p = providerById(el.dataset.providerToggle); if(!p) return;
+    p.enabled = el.checked;
+    showToast(p.enabled?'check':'trash', p.name+(p.enabled?' 已启用':' 已停用')+(p.enabled?'':'，其模型不再对 Agent 可选'));
+    renderView();
+  }));
+  document.querySelectorAll('[data-provider-test]').forEach(el=>el.addEventListener('click', ()=>{
+    const p = providerById(el.dataset.providerTest); if(!p) return;
+    el.disabled = true; el.textContent = '测试中…';
+    setTimeout(()=>{ p.status = 'connected'; showToast('check', p.name+' 连接正常，发现 '+p.models.length+' 个模型（演示）'); renderView(); }, 700);
+  }));
+  document.querySelectorAll('[data-provider-delete]').forEach(el=>el.addEventListener('click', ()=>{
+    const p = providerById(el.dataset.providerDelete); if(!p) return;
+    const usedBy = AGENTS.filter(a=> p.models.some(m=>m.id===a.model)).map(a=>a.name);
+    PROVIDERS = PROVIDERS.filter(x=>x.id!==p.id);
+    showToast('trash', p.name+' 已删除'+(usedBy.length? ('，'+usedBy.length+' 个 Agent 的模型需重新选择') : ''));
+    renderView();
+  }));
+  if(State.view==='publish-task') wirePublishTaskEvents();
+  makeKeyboardClickable(document.getElementById('view-root'));
+}
+
+document.querySelectorAll('.nav-item').forEach(el=>el.addEventListener('click', ()=>{
+  State.taskDetailId = null;
+  if(el.dataset.view==='publish-task') newTaskSkills = [];
+  switchView(el.dataset.view);
+  // 窄屏（抽屉模式）导航后顺手收抽屉
+  if(matchMedia('(max-width: 880px)').matches) closeSidebar();
+}));
+document.getElementById('btn-mechanism').addEventListener('click', ()=>openModal(mechanismModalHtml(),'wide'));
+function openSidebar(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebar-scrim').classList.add('open'); }
+function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-scrim').classList.remove('open'); }
+document.getElementById('menu-toggle').addEventListener('click', ()=>{
+  document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
+});
+document.getElementById('sidebar-scrim').addEventListener('click', closeSidebar);
+
+document.getElementById('global-search').addEventListener('keydown', e=>{
+  if(e.key !== 'Enter') return;
+  const q = e.target.value.trim().toLowerCase(); if(!q) return;
+  const hitTask = TASKS.find(t=> t.title.toLowerCase().includes(q));
+  const hitAgent = AGENTS.find(a=> a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q));
+  const hitDoc = DOCS.find(d=> d.title.toLowerCase().includes(q));
+  if(hitTask && hitTask.status!=='open'){ State.taskDetailId = hitTask.id; switchView('overview'); }
+  else if(hitAgent){ openAgentDrawer(hitAgent.id); }
+  else if(hitDoc){ openModal(docPreviewHtml(hitDoc)); }
+});
+
+/* ============ Theme ============ */
+const systemSchemeQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function updateResolvedLabel(){
+  const el = document.getElementById('theme-resolved');
+  if(!el) return;
+  const isDark = systemSchemeQuery ? systemSchemeQuery.matches : false;
+  el.textContent = ' · ' + (isDark ? '深色' : '浅色');
+}
+function applyTheme(mode){
+  const root = document.documentElement;
+  if(mode==='system') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', mode);
+  document.querySelectorAll('#theme-toggle button').forEach(b=>b.classList.toggle('active', b.dataset.themeOpt===mode));
+  updateResolvedLabel();
+  try{ localStorage.setItem('buling-theme', mode); }catch(e){}
+}
+document.querySelectorAll('#theme-toggle button').forEach(b=>b.addEventListener('click', ()=>applyTheme(b.dataset.themeOpt)));
+if(systemSchemeQuery && systemSchemeQuery.addEventListener) systemSchemeQuery.addEventListener('change', updateResolvedLabel);
+(function initTheme(){
+  let saved = 'system';
+  try{ saved = localStorage.getItem('buling-theme') || 'system'; }catch(e){}
+  applyTheme(saved);
+})();
+
+/* ============ Init ============ */
+renderView();
+</script>
+
+</body>
+</html>
