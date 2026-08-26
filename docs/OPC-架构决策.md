@@ -251,6 +251,32 @@ Rust 端用 `keyring` crate 统一封装。
 
 **这一版仍然没做的事**：一次 Provider 调用的同一段文本仍然原样写进节点声明的每一个 output 路径（附注 5 的简化 1 还在）；`output.path` 是目录 glob 契约的节点仍然不驱动（附注 5 的简化 2 还在）——这两条跟"读上游内容"是两件独立的事，这次没有顺手动它们。
 
+### ADR-005 附注 8 · `condition` 节点表达式求值器 + `reject_gate` 下游级联失效（P0.5）
+
+补附注 5 留的另外两个诚实缺口：`condition` 节点（如 `qa_gate`）一直停在 `pending` 不会自动推进；`reject_gate` 打回只重置 `on_reject.goto` 直接点名的节点，不管下游已经跑完的那些。
+
+**`condition` 节点求值**（新增 `runtime/crates/opc-workflow/src/condition.rs`）：
+- **表达式语法**：只认 `templates/README.md` 里已经出现过的形状——`<node_id>.output.<kind>.<field> <op> <literal>`，恰好 3 个空格分隔的 token（`qa_test.output.bug-report.critical_count == 0`）。`<field>` 从目标 Artifact 正文第一个 ` ```yaml ` 围栏代码块里取（"Runtime 契约字段"，`templates/artifacts/qa/Regression-Report.md` 已经是这个格式的范例）。**踩到一个真实的模板内部不一致**：`templates/artifacts/qa/Bug-Report.md` 原本只在 prose 里写"Runtime 契约：`critical_count = P0 数`"，没给围栏代码块，跟 `Regression-Report.md` 已有的约定对不上——这次一并把围栏代码块补齐，不是凭空发明新格式，是让模板自己内部一致。
+- **分支怎么"取消"，不是靠改 `depends_on`**：真实模板里 `bug_fix`/`acceptance_prep` 这些分支目标的 `depends_on` 并不包含 `qa_gate`（只包含 `qa_test`），所以`condition` 节点求出结果后，**没选中的那个分支目标**会被标 `cancelled`（`tasks.status` 新增的语义用法，schema 本来就有这个取值，不用改表）；`load_resolved_node_keys()`（原来查 `status='completed'` 的三处重复查询，这次统一收成这一个函数）把 `completed ∪ cancelled` 都当"已解决，下游可以继续"——一个被跳过的分支不该永远堵住依赖它的下游。判断不出结果（Artifact 没落盘/没写契约字段）就留在 `pending`，不瞎猜。
+- **范围**：只求值独立的 `kind=condition` 节点。**不**求值 `kind=agent` 节点 `on_complete` 上挂的条件分支（`regression` 节点那种形状）——那是附着在一个已经在跑的 Agent 节点后面的另一种分支，还牵扯"跳过的分支要不要级联跳过它自己的下游"这类没有先例可循的设计判断，这版不猜，留给下一版专门设计。
+- **触发点**：`run_task_node()` 成功跑完一个 `kind=agent` 节点之后调用一次——这版 `condition` 节点的唯一真实先例（`qa_gate`）依赖的正是一个 `kind=agent` 节点（`qa_test`）。
+
+**`reject_gate` 下游级联失效**（`gate.rs` 新增 `cascade_downstream()`）：
+- 用 `depends_on` 建一张正向邻接表（谁依赖谁），从 `on_reject.goto` 指名的节点出发 BFS，找出全部下游（不管间接多少层）一起重置回 `pending`。级联集合里如果包含别的 `kind=human` 评审节点，连它对应的 `gates` 行也一起重置——包括这次被打回的 Gate 自己对应的评审节点，只要它结构上依赖某个 goto 目标（比如打回 `prd_review` 时，`prd_review` 自己就依赖 `prd`，会被自己的级联扫回去，这是对的：一个曾经 `passed` 又被重新打回的 Gate 就该回到 `pending`）。
+- **已知局限**：级联只重置 `status`/`started_at`/`finished_at`，不清空 `manual`/`auto-claim` 节点已经写好的 `assigned_agent_id`——重跑会沿用原来的认领/指派，不会变回"待认领"。
+
+**测试**：4 条新集成测试——合成的最小 condition 模板（`check`→`gate`→`happy_path`/`fix_path`）分别验证 true 分支取消 `fix_path`、false 分支取消 `happy_path`、契约字段缺失时两个分支都不动；真实模板上验证打回一个已经 `passed`、下游已经真的跑完的 Gate，`prd`/`prd_review`/`tech_selection` 和 `requirement-gate` 都级联回 `pending`。workspace 累计 70 个测试全绿。
+
+### ADR-005 附注 9 · `opc-privacy` + `opc-audit` 落地（P0.5）
+
+补 `runtime/README.md` 规划里一直空着的两个 crate。
+
+**`opc-privacy`**（纯逻辑、零依赖）：`is_allowed(agent_sensitivity, provider_allowed_sensitivity)` 一个函数——`AgentDefinition.sensitivity` 必须显式出现在候选 Provider 的 `allowed_sensitivity` 白名单里，这是 `AGENTS.md`"敏感数据自动脱敏或直接拒绝"的"直接拒绝"那一半。接入点在 `opc_agent::select_provider()`：被拦下的候选**压根不会被构建/调用**（不是"调用了但连不上"），如果全部候选都因为这条被拦，报独立的 `Error::PrivacyBlocked` 而不是笼统的 `NoProviderAvailable`——两种失败对用户的意义完全不同。**这一版明确不做**"自动脱敏"——把敏感内容从 Prompt 里洗掉再放行需要真正理解内容语义，没有明确规则的情况下不该臆造一套。
+
+**`opc-audit`**：`record(db, LogEvent { kind, result, .. })`，一个 `INSERT` 进 `project.sqlite.execution_logs`（append-only）。`kind`/`result` 取值对齐 schema 注释里已经枚举过的常量，导出成 `opc_audit::kind::*`/`opc_audit::outcome::*` 避免调用方手敲字符串拼错。接入点：`opc-workflow::runner::run_task_node()` 每次 `opc_agent::run_task()`（`llm.call`，成功/失败/被隐私哨兵拦下分别记 `ok`/`error`/`blocked`）和每次 `write_and_register_artifact()`（`tool.file.write`）；`gate::approve_gate()`/`reject_gate()`（`review.decision`，`confirmed`/`denied`——这两个取值本来就在 schema 的 CHECK 约束里，不是这次新加的，只是第一次真的用上）。**这一版只接了 PROJECT 级** `execution_logs`；APP 级（provider 测试/项目创建这类全局操作）还没有调用方接进来。
+
+**测试**：`opc-privacy` 4 个纯函数测试；`opc-audit` 2 个真实写库/读回测试；`opc-agent` 新增 1 条测试证明 `sensitivity=high` 的 Agent 面对只有云 Provider 的候选列表时，**从没真的往对方服务器发过请求**（用 wiremock 的 `received_requests()` 断言请求数为 0）就被拦下。
+
 ---
 
 ## ADR-006 · 依赖沿用：`apps/local-gateway` 与 `packages/cli-registry` 短期保留

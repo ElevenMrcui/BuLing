@@ -946,6 +946,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 name = "opc-agent"
 version = "0.1.0"
 dependencies = [
+ "opc-privacy",
  "opc-provider",
  "opc-storage",
  "serde",
@@ -958,6 +959,21 @@ dependencies = [
  "tracing",
  "wiremock",
 ]
+
+[[package]]
+name = "opc-audit"
+version = "0.1.0"
+dependencies = [
+ "opc-storage",
+ "sqlx",
+ "tempfile",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "opc-privacy"
+version = "0.1.0"
 
 [[package]]
 name = "opc-project"
@@ -1051,6 +1067,7 @@ name = "opc-workflow"
 version = "0.1.0"
 dependencies = [
  "opc-agent",
+ "opc-audit",
  "opc-project",
  "opc-provider",
  "opc-storage",

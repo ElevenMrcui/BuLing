@@ -247,7 +247,7 @@ default_base_url = "{}"
         vec!["definitely-missing-cli".to_string(), "test-api".to_string()],
     );
 
-    let (provider_id, _provider) = select_provider(&registry, &agent.id, &agent.provider_priority)
+    let (provider_id, _provider) = select_provider(&registry, &agent.id, &agent.sensitivity, &agent.provider_priority)
         .await
         .expect("should fall through to test-api");
     assert_eq!(provider_id, "test-api");
@@ -288,11 +288,59 @@ cli_binary = "no-such-binary-b"
     let agent = minimal_agent("lonely-agent", vec!["missing-a".to_string(), "missing-b".to_string()]);
 
     // Box<dyn Provider> 不是 Debug，不能用 .expect_err()（它要求 Ok 分支也 Debug）
-    let err = match select_provider(&registry, &agent.id, &agent.provider_priority).await {
+    let err = match select_provider(&registry, &agent.id, &agent.sensitivity, &agent.provider_priority).await {
         Err(e) => e,
         Ok(_) => panic!("both providers should be unavailable"),
     };
     let msg = err.to_string();
     assert!(msg.contains("lonely-agent"), "error should name the agent: {msg}");
     assert!(msg.contains("missing-a") && msg.contains("missing-b"), "error should list tried providers: {msg}");
+}
+
+/// 隐私哨兵硬拦：`sensitivity=high` 的 Agent 候选列表里只有一个云 Provider
+/// （`allowed_sensitivity` 默认 `["low","medium"]`，不含 `high`）——这家
+/// **压根不会被真正调用**（不是"调用了但连不上"），报 `PrivacyBlocked`，
+/// 不是 `NoProviderAvailable`。
+#[tokio::test]
+async fn select_provider_blocks_high_sensitivity_agent_from_cloud_provider() {
+    let server = MockServer::start().await;
+    let manifests_dir = TempDir::new().unwrap();
+    write_manifest(
+        manifests_dir.path(),
+        "cloud-api",
+        &format!(
+            r#"
+id = "cloud-api"
+display_name = "云 API"
+vendor = "test"
+kind = "api"
+wire_format = "openai-compatible"
+default_base_url = "{}"
+"#,
+            server.uri()
+        ),
+    );
+    // 没写 allowed_sensitivity，manifest.rs 默认给 ["low","medium"]，不含 "high"。
+
+    Mock::given(method("POST")).and(path("/chat/completions")).respond_with(ResponseTemplate::new(200)).mount(&server).await;
+
+    let registry = ProviderRegistry::load_from_dir(manifests_dir.path()).unwrap();
+    let mut agent = minimal_agent("acceptance-agent", vec!["cloud-api".to_string()]);
+    agent.sensitivity = "high".to_string();
+
+    let err = match select_provider(&registry, &agent.id, &agent.sensitivity, &agent.provider_priority).await {
+        Err(e) => e,
+        Ok(_) => panic!("high sensitivity agent should never reach the cloud provider"),
+    };
+    match err {
+        opc_agent::Error::PrivacyBlocked { agent_id, agent_sensitivity, blocked_providers } => {
+            assert_eq!(agent_id, "acceptance-agent");
+            assert_eq!(agent_sensitivity, "high");
+            assert_eq!(blocked_providers, vec!["cloud-api".to_string()]);
+        }
+        other => panic!("expected PrivacyBlocked, got: {other}"),
+    }
+
+    // 从没真的往 mock server 发过请求——隐私哨兵在网络调用之前就拦下了。
+    assert_eq!(server.received_requests().await.unwrap().len(), 0);
 }

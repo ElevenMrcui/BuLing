@@ -148,13 +148,15 @@ pnpm install
 
 # —— Runtime（Rust · SQLite 存储） ——
 make runtime-check        # cargo check
-make runtime-test         # 55 个测试：opc-storage 3 个（app/project db + FTS5）
+make runtime-test         # 70 个测试：opc-storage 3 个（app/project db + FTS5）
                           #           + opc-provider 11 个（CLI adapter 单测 + wire format 集成测试）
-                          #           + opc-agent 6 个（YAML 加载 + 播种幂等性 + Provider fallback）
+                          #           + opc-privacy 4 个（Agent 敏感度 vs Provider 白名单硬拦）
+                          #           + opc-agent 7 个（YAML 加载 + 播种幂等性 + Provider fallback + 隐私哨兵拦截）
                           #           + opc-tool 8 个（沙箱路径校验 + Artifact 版本化 + 端到端胶水）
                           #           + opc-project 8 个（创建/打开/列出项目 + Agent 实例化 + 端到端胶水）
-                          #           + opc-workflow 9 个（模板加载 + DAG 实例化 + 驱动执行 + Gate 通过/打回 + 上游 Artifact 内容注入 Prompt）
+                          #           + opc-workflow 13 个（模板加载 + DAG 实例化 + 驱动执行 + Gate 通过/打回级联 + 上游 Artifact 内容注入 Prompt + condition 节点求值）
                           #           + opc-task 10 个（能力匹配认领打分 + 手动指派 + 驱动已指派节点执行）
+                          #           + opc-audit 2 个（execution_logs 写入/读回）
 
 # —— 桌面 App（Tauri 2） ——
 make desktop-check        # 无窗口 · 前端 typecheck+build + Rust cargo check
@@ -175,7 +177,7 @@ make gateway              # http://127.0.0.1:17817
 
 ## 使用教程
 
-> **当前进度提醒**：Runtime 已跑通 Storage / Provider / Agent / Tool / Project / Workflow / Task 七层，桌面壳是一个真实的多页应用（侧边栏 13 个一级菜单，视觉语言沿用 `legacy/prototype` 验证过的 token 系统），能真的**创建项目、把 9 位预置岗位实例化进项目团队、发现本机可用的 AI 引擎、跑通"选模板 → Agent 接力产出 → 评审红线通过/打回 → 认领/指派下一阶段"这条链的前半段**。止步的地方是诚实的边界：前后端开发这几个节点需要"一次 Agent 产出一整个目录的多份源码文件"，这是比现有 Artifact 模型大得多的另一件事，还没做——下面教程会讲到具体停在哪。
+> **当前进度提醒**：Runtime 已跑通 Storage / Provider / Privacy / Agent / Tool / Project / Workflow / Task / Audit 九层，桌面壳是一个真实的多页应用（侧边栏 13 个一级菜单，视觉语言沿用 `legacy/prototype` 验证过的 token 系统），能真的**创建项目、把 9 位预置岗位实例化进项目团队、发现本机可用的 AI 引擎、跑通"选模板 → Agent 接力产出 → 评审红线通过/打回 → 认领/指派下一阶段"这条链的前半段**。止步的地方是诚实的边界：前后端开发这几个节点需要"一次 Agent 产出一整个目录的多份源码文件"，这是比现有 Artifact 模型大得多的另一件事，还没做——下面教程会讲到具体停在哪。
 
 ### 1. 准备环境
 
@@ -242,7 +244,7 @@ health-app/
 ### 6. 命令行验证（不想开图形界面时）
 
 ```bash
-make runtime-test   # 跑全部 55 个 Rust 集成/单元测试，验证 Storage/Provider/Agent/Tool/Project/Workflow/Task 七层逻辑
+make runtime-test   # 跑全部 70 个 Rust 集成/单元测试，验证 Storage/Provider/Privacy/Agent/Tool/Project/Workflow/Task/Audit 九层逻辑
 make desktop-check  # 无窗口验证前端 + Rust 后端都能编译
 ```
 

@@ -301,6 +301,8 @@ async fn full_chain_assign_manually_then_run_writes_real_artifact() {
             reviewer: None,
             on_reject_goto: vec![],
             condition: None,
+            on_true_goto: vec![],
+            on_false_goto: vec![],
         }],
         gates: vec![],
     };

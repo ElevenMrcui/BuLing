@@ -6,21 +6,14 @@
 use std::collections::HashSet;
 
 use opc_storage::ProjectDb;
-use opc_workflow::{load_dag, ready_node_keys};
+use opc_workflow::{load_dag, load_resolved_node_keys, ready_node_keys};
 
 use crate::error::Result;
 
 pub async fn is_node_ready(project_db: &ProjectDb, workflow_id: &str, node_key: &str) -> Result<bool> {
     let dag = load_dag(project_db, workflow_id).await?;
-
-    let completed_rows: Vec<(String,)> =
-        sqlx::query_as("SELECT node_key FROM tasks WHERE workflow_id = ? AND status = 'completed'")
-            .bind(workflow_id)
-            .fetch_all(&project_db.pool)
-            .await?;
-    let completed: HashSet<String> = completed_rows.into_iter().map(|(k,)| k).collect();
-
-    let ready: HashSet<String> = ready_node_keys(&dag, &completed).into_iter().collect();
+    let resolved = load_resolved_node_keys(project_db, workflow_id).await?;
+    let ready: HashSet<String> = ready_node_keys(&dag, &resolved).into_iter().collect();
     Ok(ready.contains(node_key))
 }
 
@@ -33,14 +26,8 @@ pub async fn list_ready_pending_by_mode(
     mode: &str,
 ) -> Result<Vec<opc_workflow::TaskRow>> {
     let dag = load_dag(project_db, workflow_id).await?;
-
-    let completed_rows: Vec<(String,)> =
-        sqlx::query_as("SELECT node_key FROM tasks WHERE workflow_id = ? AND status = 'completed'")
-            .bind(workflow_id)
-            .fetch_all(&project_db.pool)
-            .await?;
-    let completed: HashSet<String> = completed_rows.into_iter().map(|(k,)| k).collect();
-    let ready: HashSet<String> = ready_node_keys(&dag, &completed).into_iter().collect();
+    let resolved = load_resolved_node_keys(project_db, workflow_id).await?;
+    let ready: HashSet<String> = ready_node_keys(&dag, &resolved).into_iter().collect();
 
     let rows: Vec<opc_workflow::TaskRow> = sqlx::query_as(
         "SELECT id, workflow_id, node_key, kind, role, assignment_mode, assigned_agent_id, status \

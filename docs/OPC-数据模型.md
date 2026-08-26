@@ -123,7 +123,7 @@ Provider Router 按序尝试；第一个 `status=connected` 的命中。方便"�
 
 `report_artifact_id` 指向本次强制产出的 `Report.md`——**没产 Report 就不算完成**（Runtime 侧的硬校验，P0 尚未接，见下）。
 
-**Rust 实现**：`runtime/crates/opc-workflow`——`instantiate_workflow()` 把 `templates/*.yaml` 解析出的 `WorkflowTemplate`（`dag` 字段存整份 JSON 快照）落成一行 `workflows` + 逐节点一行 `tasks` + 逐 Gate 一行 `gates`；`run_task_node()` 驱动 `kind=agent` 的节点真正执行并落盘 Artifact（`opc-task::run_assigned_task()` 对 `manual`/`auto-claim` 节点复用同一个函数，不重复实现）。`kind=human` 节点（评审红线）永远不会被自动推进，只能通过 `approve_gate()`/`reject_gate()` 显式人工触发。`condition` 节点表达式求值、"一次 Agent 产出一整个目录的多份具名文件"（`frontend_dev`/`backend_dev`/`bug_fix` 这几个节点需要的能力）、Report.md 强制产出这一版都还没接，见 `docs/OPC-架构决策.md` ADR-005 附注 5/6。
+**Rust 实现**：`runtime/crates/opc-workflow`——`instantiate_workflow()` 把 `templates/*.yaml` 解析出的 `WorkflowTemplate`（`dag` 字段存整份 JSON 快照）落成一行 `workflows` + 逐节点一行 `tasks` + 逐 Gate 一行 `gates`；`run_task_node()` 驱动 `kind=agent` 的节点真正执行并落盘 Artifact（`opc-task::run_assigned_task()` 对 `manual`/`auto-claim` 节点复用同一个函数，不重复实现）。`kind=human` 节点（评审红线）永远不会被自动推进，只能通过 `approve_gate()`/`reject_gate()` 显式人工触发。独立的 `kind=condition` 节点（如 `qa_gate`）会在依赖满足后自动求值推进；"一次 Agent 产出一整个目录的多份具名文件"（`frontend_dev`/`backend_dev`/`bug_fix` 这几个节点需要的能力）、`kind=agent` 节点 `on_complete` 上挂的条件分支（`regression` 节点那种形状）、Report.md 强制产出这几件事这一版还没接，见 `docs/OPC-架构决策.md` ADR-005 附注 5/6/8。
 
 ### 3.8 `artifacts` + `artifact_versions` + `artifact_refs`
 三张表拼出"追溯图"：
@@ -147,7 +147,7 @@ Provider Router 按序尝试；第一个 `status=connected` 的命中。方便"�
 ### 3.10 `reviews` = append-only
 一次评审动作 = 一行记录。历史所有决策都留着；某次"批准"后又发现问题，写一条新的"changes-requested"覆盖，前一条不删。
 
-**Rust 实现**：`opc_workflow::approve_gate()` 写 `decision='approved'`，`reject_gate()` 写 `decision='changes-requested'` 并把模板 `on_reject.goto` 指向的节点重置回 `pending`（不做下游级联失效，P0 已知局限）。
+**Rust 实现**：`opc_workflow::approve_gate()` 写 `decision='approved'`，`reject_gate()` 写 `decision='changes-requested'` 并把模板 `on_reject.goto` 指向的节点**连同它们的全部下游**（`depends_on` 正向展开）一起重置回 `pending`，见 `docs/OPC-架构决策.md` ADR-005 附注 8。
 
 ### 3.11 `memory_entries` + `memory_fts`
 - 主表存 KV

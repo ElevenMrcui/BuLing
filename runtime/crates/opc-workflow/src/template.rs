@@ -59,6 +59,10 @@ struct RawNode {
     gate: Option<String>,
     subject: Option<OneOrMany>,
     on_reject: Option<RawGoto>,
+    /// `kind: condition` 节点专属：`condition` 表达式求值为 true/false 各自
+    /// `goto` 到哪些节点，见 `crate::condition`。
+    on_true: Option<RawGoto>,
+    on_false: Option<RawGoto>,
     condition: Option<String>,
     #[serde(default)]
     parallel: Vec<RawNode>,
@@ -116,6 +120,9 @@ pub struct TemplateNode {
     /// `on_reject.goto`——打回后要重置回 pending 的节点 id 列表，见 `gate::reject_gate`。
     pub on_reject_goto: Vec<String>,
     pub condition: Option<String>,
+    /// `kind: condition` 节点专属，见 `crate::condition::advance_condition_nodes`。
+    pub on_true_goto: Vec<String>,
+    pub on_false_goto: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,6 +155,8 @@ fn to_template_node(raw: RawNode, file: &str) -> Result<TemplateNode> {
         depends_on = subject.clone();
     }
     let on_reject_goto = raw.on_reject.map(|g| g.goto.into_vec()).unwrap_or_default();
+    let on_true_goto = raw.on_true.map(|g| g.goto.into_vec()).unwrap_or_default();
+    let on_false_goto = raw.on_false.map(|g| g.goto.into_vec()).unwrap_or_default();
 
     Ok(TemplateNode {
         id,
@@ -162,6 +171,8 @@ fn to_template_node(raw: RawNode, file: &str) -> Result<TemplateNode> {
         reviewer: raw.reviewer,
         on_reject_goto,
         condition: raw.condition,
+        on_true_goto,
+        on_false_goto,
     })
 }
 

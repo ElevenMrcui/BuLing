@@ -1,0 +1,16 @@
+[package]
+name = "opc-audit"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "不令 OPC 审计层 · 项目级 execution_logs（append-only）写入"
+
+[dependencies]
+opc-storage = { path = "../opc-storage" }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full", "test-util"] }
+tempfile = "3"

@@ -26,15 +26,15 @@ runtime/
 │   ├── opc-storage/               ✅ SQLite + sqlx · migration runner · AppDb/ProjectDb（3 测试）
 │   ├── opc-provider/               ✅ Provider trait · CLI/API/Local 抽象 · 11 家厂商 manifest（11 测试）
 │   │                                见 §Provider 层 与 providers/README.md
-│   ├── opc-agent/                 ✅ 加载 agents/*.yaml · 播种 app.sqlite · 驱动一次 Provider 执行（6 测试）
+│   ├── opc-privacy/                ✅ 隐私哨兵：Agent 敏感度 vs Provider 白名单硬拦（4 测试）见 §Privacy 层
+│   ├── opc-agent/                 ✅ 加载 agents/*.yaml · 播种 app.sqlite · 驱动一次 Provider 执行（7 测试）
 │   │                                见 §Agent 层
 │   ├── opc-tool/                  ✅ 项目内文件写入（沙箱化）+ Artifact 登记（8 测试）见 §Tool 层
 │   ├── opc-project/                ✅ 创建 / 打开 / 列出 project · 把预置 Agent 实例化进团队（8 测试）见 §Project 层
-│   ├── opc-workflow/               ✅ 加载 templates/*.yaml · 实例化 DAG · 驱动 Agent 节点 · 人工 Gate（7 测试）见 §Workflow 层
+│   ├── opc-workflow/               ✅ 加载 templates/*.yaml · 实例化 DAG · 驱动 Agent 节点 · 人工 Gate · condition 求值（13 测试）见 §Workflow 层
 │   ├── opc-task/                  ✅ manual/auto-claim 节点指派 · 能力匹配认领分 · 驱动已指派节点执行（10 测试）见 §Task 层
-│   ├── opc-mcp/                   MCP client
-│   ├── opc-privacy/                隐私哨兵：外发拦截 / 数据脱敏
-│   └── opc-audit/                 ExecutionLog append-only 写入
+│   ├── opc-audit/                 ✅ project.sqlite execution_logs（append-only）写入（2 测试）见 §Audit 层
+│   └── opc-mcp/                   MCP client（计划中）
 ```
 
 （原规划里的 `opc-runtime` 总装 crate、`seeds/agents.rs` 独立脚本已被 `opc-agent` 的 `seed_agents()` 取代——不再需要单独一层，Tauri `src-tauri/src/lib.rs` 直接调用即可，见 §Agent 层。）
@@ -49,6 +49,15 @@ runtime/
 - **Factory**：`ProviderRegistry` 从 `providers/*/manifest.toml` 声明式构建实例，加厂商不改 Rust 代码
 
 职责边界：只做一次文本补全（system + 历史进，文本 + usage 出），不做工具调用循环——那是 `opc-tool` + `opc-workflow` 的事。
+
+## Privacy 层（`opc-privacy`，已落地）
+
+隐私哨兵——`AGENTS.md`"与外发有关的操作必须过隐私哨兵，敏感数据自动脱敏或直接拒绝"这条硬约束的"直接拒绝"那一半。纯逻辑、零依赖的小 crate：
+
+- `is_allowed(agent_sensitivity, provider_allowed_sensitivity)` —— `AgentDefinition.sensitivity`（`agents/*.yaml`，如"验收"是 `high`）必须显式出现在候选 Provider 的 `allowed_sensitivity` 白名单（`providers/*/manifest.toml`）里，否则拒绝
+- 接入点在 `opc_agent::select_provider()`：候选列表里被拦下的 Provider **压根不会被构建/调用**（不是"调用了但连不上"），如果全部候选都因为这条被拦，报独立的 `Error::PrivacyBlocked`（而不是笼统的 `NoProviderAvailable`），`opc-workflow::run_task_node()` 接住这个错误后会写一条 `kind=privacy.block` 的审计日志
+
+**这一版的范围**（诚实标注）：只做"敏感度白名单硬拦截"，不做"自动脱敏"——把敏感内容从 Prompt 里洗掉再放行需要真正理解内容语义，这一版没有，也不该在没有明确脱敏规则的情况下臆造一套。
 
 ## Agent 层（`opc-agent`，已落地）
 
@@ -89,14 +98,15 @@ Tauri IPC `opc_create_project` / `opc_list_projects` 已联通，桌面壳「项
 
 ## Workflow 层（`opc-workflow`，已落地）
 
-把 `templates/*.yaml` 变成一次真的能跑的项目交付链。四件事：
+把 `templates/*.yaml` 变成一次真的能跑的项目交付链。五件事：
 
 - `template::load_templates_from_dir()` —— 解析模板成 `WorkflowTemplate`；`parallel` 分组节点在加载时就地拍平成独立节点，组级 `depends_on` 并入每个子节点；节点依赖不只看显式 `depends_on`，还会从 `inputs`（`templates/README.md` 里"只声明依赖，Runtime 自动注入"那句话字面意思）和 `human` 节点的 `subject` 推导补全
 - `instantiate::instantiate_workflow()` —— 建 `workflows` 行（`dag` 存整份模板 JSON 快照）+ 逐节点建 `tasks` 行（`assignment=template` 的 Agent 节点顺带用 `opc_project::find_agent_instance_id()` 解析出 `assigned_agent_id`）+ 逐 Gate 建 `gates` 行
-- `runner::list_ready_agent_tasks()` / `run_task_node()` —— 只驱动 `kind=agent · assignment=template` 且依赖已满足的节点：解析 `node.inputs` 把上游节点真实落盘的 Artifact 内容（`"<node_id>"` 注入整节点全部 output，`"<node_id>.output.<kind>"` 只注入一个；`__goal__` 从 `project_meta.goal` 取用户最初的目标）拼进 Prompt → 调 `opc_agent::run_task()` 拿文本 → 对节点声明的每个 output 调 `opc_tool::write_and_register_artifact()` 落盘登记 → 写 `task_runs` → 标记完成
-- `gate::approve_gate()` / `reject_gate()` —— **评审红线的唯一入口**，`runner` 永远不会自动把 `kind=human` 节点标完成。`reject_gate` 把 `on_reject.goto` 指向的节点重置回 `pending`，操作化"打回重做"
+- `runner::list_ready_agent_tasks()` / `run_task_node()` —— 只驱动 `kind=agent · assignment=template` 且依赖已满足（`load_resolved_node_keys()`：`completed` 或 `cancelled`）的节点：解析 `node.inputs` 把上游节点真实落盘的 Artifact 内容（`"<node_id>"` 注入整节点全部 output，`"<node_id>.output.<kind>"` 只注入一个；`__goal__` 从 `project_meta.goal` 取用户最初的目标）拼进 Prompt → 调 `opc_agent::run_task()` 拿文本 → 对节点声明的每个 output 调 `opc_tool::write_and_register_artifact()` 落盘登记 → 写 `task_runs` → 标记完成 → 跑一次 `condition::advance_condition_nodes()`。每次 LLM 调用/文件落盘都追加一条 `opc_audit::record()`
+- `gate::approve_gate()` / `reject_gate()` —— **评审红线的唯一入口**，`runner` 永远不会自动把 `kind=human` 节点标完成。`reject_gate` 把 `on_reject.goto` 指向的节点**连同它们的全部下游**（`depends_on` 正向展开）一起重置回 `pending`——不只是直接点名的那几个，`docs/OPC-架构决策.md` ADR-005 附注 8 有完整设计说明
+- `condition::advance_condition_nodes()` —— `kind=condition` 节点（如 `qa_gate`）的表达式求值器：`<node>.output.<kind>.<field> <op> <literal>`，`<field>` 从目标 Artifact 正文第一个 ` ```yaml ` 围栏代码块（"Runtime 契约字段"，`templates/artifacts/qa/Regression-Report.md` 是范例）里取；判断得出结果就把没选中的分支目标标 `cancelled`（不会永远堵住下游），判断不出来就留在 `pending`，不瞎猜
 
-**这一版没做的事**（诚实标注）：`human`/`condition` 节点不自动推进（前者是红线要求，后者是没有表达式求值器）；`manual`/`auto-claim` 节点不解析执行；一次 Provider 调用的同一段文本原样写进节点声明的每一个 output（不会拆成几份不同内容的文件）；`node.inputs` 引用到 `frontend/**` 这类目录 glob 契约的 output 时读不到内容会静默跳过；打回不做下游级联失效。见 `docs/OPC-架构决策.md` ADR-005 附注 5、7。
+**这一版没做的事**（诚实标注）：`human` 节点不自动推进（评审红线要求）；`manual`/`auto-claim` 节点不解析执行；一次 Provider 调用的同一段文本原样写进节点声明的每一个 output（不会拆成几份不同内容的文件）；`node.inputs` 引用到 `frontend/**` 这类目录 glob 契约的 output 时读不到内容会静默跳过；`kind=agent` 节点 `on_complete` 上挂的条件分支（`regression` 节点那种形状）不求值，只有独立的 `kind=condition` 节点求值；`reject_gate` 级联重置不清空 `manual`/`auto-claim` 节点已写的 `assigned_agent_id`。见 `docs/OPC-架构决策.md` ADR-005 附注 5、7、8。
 
 Tauri IPC `opc_create_project`（加了 `template_id` 参数）+ `opc_workflow_tasks` / `opc_workflow_ready_tasks` / `opc_workflow_run_task` / `opc_workflow_gates` / `opc_workflow_approve_gate` / `opc_workflow_reject_gate` 已联通，桌面壳新增「工作流中心」卡片。
 
@@ -114,6 +124,15 @@ Tauri IPC `opc_create_project`（加了 `template_id` 参数）+ `opc_workflow_t
 **诚实标注**：`standard-software-delivery.yaml` 里全部 `manual`/`auto-claim` 节点的 output 都是这种目录级 glob，`claim_task`/`assign_task_manually` 本身能正常工作，但 `run_assigned_task` 对这几个节点会正确报错拒绝（不是遗漏，是"一次 Agent 产出一整个目录的多份具名文件"这种能力目前还不存在，比这个 crate 大得多的另一件事）；这不是能力匹配算法真的在模拟"Agent 自主投标"，是确定性的能力重合打分——见 `docs/OPC-架构决策.md` ADR-005 附注 6。
 
 Tauri IPC `opc_task_claimable_tasks` / `opc_task_manual_tasks` / `opc_task_claim` / `opc_task_assign_manually` / `opc_task_run` 已联通，「工作流中心」卡片新增认领/指派入口。
+
+## Audit 层（`opc-audit`，已落地）
+
+只做一件事：把一次操作追加写进 `project.sqlite` 的 `execution_logs`（append-only，见 `docs/OPC-数据模型.md` §3.12）。
+
+- `record(db, LogEvent { kind, result, .. })` —— 一个 `INSERT`，`kind`/`result` 取值对齐 schema 注释里已经枚举过的常量（`opc_audit::kind::*` / `opc_audit::outcome::*`），不用调用方手敲字符串
+- 目前的写入点：`opc-workflow::runner::run_task_node()` 每次 `opc_agent::run_task()`（`llm.call`，成功/失败/被隐私哨兵拦下分别记 `ok`/`error`/`blocked`）和每次 `write_and_register_artifact()`（`tool.file.write`）；`opc-workflow::gate::approve_gate()`/`reject_gate()`（`review.decision`，`confirmed`/`denied`）
+
+**这一版的范围**（诚实标注）：只接了 PROJECT 级 `execution_logs`（项目内操作）；APP 级 `execution_logs`（provider 测试/项目创建这类全局操作）还没有调用方接进来。不做日志查询/聚合——那是「日志中心」UI 直接对 `execution_logs` 建索引查询就够的事。
 
 ## 双层 SQLite 布局
 
@@ -167,4 +186,5 @@ Tauri IPC `opc_task_claimable_tasks` / `opc_task_manual_tasks` / `opc_task_claim
 5. ✅ `opc-project` —— 创建 project 目录 + project.sqlite + 把预置 Agent"实例化"进 `agent_instances`；Tauri IPC `opc_create_project`/`opc_list_projects` 已联通，桌面壳「项目中心」可用
 6. ✅ `opc-workflow` —— 加载 `templates/*.yaml` + DAG 实例化，把 `run_task` + `write_and_register_artifact` 接进节点，`approve_gate`/`reject_gate` 是评审红线唯一入口；Tauri IPC 六个工作流命令已联通，桌面壳「工作流中心」可用
 7. ✅ `opc-task` —— `manual`/`auto-claim` 节点的指派/认领逻辑（能力匹配打分）；Tauri IPC 五个命令已联通
-8. `opc-privacy` + `opc-audit` —— 每次外发和 tool 调用都写日志；`condition` 节点表达式求值器；"一次 Agent 产出一整个目录的多份具名文件"这个新的执行模型
+8. ✅ `opc-privacy` + `opc-audit` —— Provider 选型前过敏感度白名单硬拦 + 每次 LLM 调用/文件落盘/评审决策都写 `execution_logs`；`condition` 节点（`qa_gate`）表达式求值器 + `reject_gate` 下游级联失效
+9. "一次 Agent 产出一整个目录的多份具名文件"这个新的执行模型（会让 `frontend_dev`/`backend_dev`/`bug_fix` 真正跑起来）；APP 级 `execution_logs`（全局操作）接入；`opc-privacy` 的"自动脱敏"半句（目前只做"直接拒绝"）

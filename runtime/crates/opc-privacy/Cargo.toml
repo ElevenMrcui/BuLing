@@ -1,0 +1,9 @@
+[package]
+name = "opc-privacy"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "不令 OPC 隐私哨兵 · Agent 敏感度 vs Provider 白名单的纯逻辑硬拦判定"
+
+[dependencies]

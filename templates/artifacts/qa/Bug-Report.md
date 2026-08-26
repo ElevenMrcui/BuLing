@@ -25,7 +25,13 @@ created_at: <auto-fill-iso>
 | P1（主要）| [N] | 前端 [n1] / 后端 [n2] |
 | P2（次要）| [N] | 前端 [n1] / 后端 [n2] |
 
-**Runtime 契约**：`critical_count = P0 数`；> 0 时工作流 `qa_gate` 自动 goto `bug_fix`。
+**Runtime 契约字段**（跟 `Regression-Report.md` 同一套写法）：
+
+```yaml
+critical_count: 0             # P0（阻塞级）数量
+                              # 0   → qa_gate 直接 goto acceptance_prep
+                              # > 0 → qa_gate 自动 goto bug_fix
+```
 
 ## 2. Bug 列表
 

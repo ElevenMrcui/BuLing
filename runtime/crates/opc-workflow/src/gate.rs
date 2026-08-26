@@ -9,6 +9,9 @@
 //! 评审任务节点。`runner` 模块永远不会自动把评审任务标记完成，必须显式调
 //! 这里的 `approve_gate` / `reject_gate`。
 
+use std::collections::{HashMap, HashSet, VecDeque};
+
+use opc_audit::{kind as log_kind, outcome as log_outcome, LogEvent};
 use opc_storage::ProjectDb;
 
 use crate::error::{Error, Result};
@@ -29,10 +32,36 @@ fn find_review_node<'a>(dag_nodes: &'a [TemplateNode], gate_id: &str) -> Option<
     dag_nodes.iter().find(|n| n.kind == "human" && n.gate.as_deref() == Some(gate_id))
 }
 
+/// 正向依赖图（谁 `depends_on` 谁）上，从 `seeds` 出发能走到的全部下游节点 id
+/// （不含 `seeds` 自己）——打回一个节点时，凡是依赖它（哪怕是间接依赖）的
+/// 节点，产出都建立在即将作废的内容之上，理应一起回到 `pending`。
+fn cascade_downstream(dag_nodes: &[TemplateNode], seeds: &[String]) -> HashSet<String> {
+    let mut forward: HashMap<&str, Vec<&str>> = HashMap::new();
+    for n in dag_nodes {
+        for dep in &n.depends_on {
+            forward.entry(dep.as_str()).or_default().push(n.id.as_str());
+        }
+    }
+
+    let mut visited: HashSet<String> = HashSet::new();
+    let mut queue: VecDeque<&str> = seeds.iter().map(|s| s.as_str()).collect();
+    while let Some(cur) = queue.pop_front() {
+        if let Some(children) = forward.get(cur) {
+            for &child in children {
+                if visited.insert(child.to_string()) {
+                    queue.push_back(child);
+                }
+            }
+        }
+    }
+    visited
+}
+
 /// 通过一个 Gate（`gate_id` 是 `template.gates[].id`，如 `"requirement-gate"`）：
 /// 该 Gate 对应的评审任务节点在 `tasks` 表标记 `completed`（下游依赖它的
 /// 节点才会进入 `list_ready_agent_tasks` 的可执行集合）、`gates` 行标记
-/// `passed`，并追加一条 `reviews`（append-only，见 `docs/OPC-数据模型.md` §3.10）。
+/// `passed`，并追加一条 `reviews`（append-only，见 `docs/OPC-数据模型.md` §3.10）
+/// 和一条 `execution_logs`（`kind=review.decision · result=confirmed`）。
 pub async fn approve_gate(project_db: &ProjectDb, workflow_id: &str, gate_id: &str, reviewer: &str, comment: Option<&str>) -> Result<()> {
     let gate_row_id = find_gate_row(project_db, workflow_id, gate_id).await?;
 
@@ -62,19 +91,34 @@ pub async fn approve_gate(project_db: &ProjectDb, workflow_id: &str, gate_id: &s
         .execute(&project_db.pool)
         .await?;
 
+    opc_audit::record(
+        project_db,
+        LogEvent { input: Some(gate_id), output: comment, ..LogEvent::new(log_kind::REVIEW_DECISION, log_outcome::CONFIRMED) },
+    )
+    .await
+    .map_err(Error::Audit)?;
+
     Ok(())
 }
 
-/// 打回一个 Gate（`gate_id` 同上）：追加一条 `changes-requested` 评审记录，
-/// 并把该 Gate 对应评审节点的 `on_reject.goto` 指向的节点重置回
-/// `pending`，让它们重新出现在 `list_ready_agent_tasks` 里（重新产出后，
-/// 同一 `file_path` 再登记 Artifact 会自然递增版本号，见
-/// `opc-tool::write_and_register_artifact`）。Gate 本身与评审任务节点的
-/// 状态都不动——仍在等一次新的评审。
+/// 打回一个 Gate（`gate_id` 同上）：追加一条 `changes-requested` 评审记录
+/// 和一条 `execution_logs`（`kind=review.decision · result=denied`），并把
+/// 该 Gate 对应评审节点的 `on_reject.goto` 指向的节点**连同它们的全部下游**
+/// 一起重置回 `pending`（重新产出后，同一 `file_path` 再登记 Artifact 会自然
+/// 递增版本号，见 `opc-tool::write_and_register_artifact`）。
 ///
-/// **已知局限**：只重置 `on_reject.goto` 直接点名的节点，不做下游级联
-/// 失效——如果被打回的节点之后还有已经跑完、依赖它产出的节点，这些下游
-/// 节点不会自动跟着重置。P0 先把"能打回重做"跑通，级联失效留给下一版。
+/// **级联失效**：`on_reject.goto` 直接点名的节点只是"要重做的起点"，真正
+/// 该失效的是**依赖它们的全部下游**（不管间接多少层，靠 `depends_on` 正向
+/// 展开，含 `augment_depends_on_from_inputs` 补的隐式依赖）——它们的产出
+/// 建立在即将作废的内容之上。级联集合里如果包含别的 `kind=human` 评审节点
+/// （包括这次被打回的 Gate 自己对应的评审节点——只要它结构上依赖某个
+/// `on_reject.goto` 目标，通常都会，比如"打回 prd_review"时 `prd_review`
+/// 自己就依赖 `prd`），连它对应的 `gates` 行也会一起重置回 `pending`（不然
+/// UI 会出现"Gate 显示已通过，但它审的任务又变回 pending"这种自相矛盾的
+/// 状态；对已经 `passed` 过一次、这次又被重新打回的 Gate 来说，回到
+/// `pending` 才是正确状态）。**已知局限**：级联只重置 `status`/`started_at`/
+/// `finished_at`，不清空 `manual`/`auto-claim` 节点已经写好的
+/// `assigned_agent_id`——重跑会沿用原来的认领/指派，不会变回"待认领"。
 pub async fn reject_gate(project_db: &ProjectDb, workflow_id: &str, gate_id: &str, reviewer: &str, comment: Option<&str>) -> Result<()> {
     let gate_row_id = find_gate_row(project_db, workflow_id, gate_id).await?;
 
@@ -88,7 +132,10 @@ pub async fn reject_gate(project_db: &ProjectDb, workflow_id: &str, gate_id: &st
         .execute(&project_db.pool)
         .await?;
 
-    for target in &goto_targets {
+    let cascade = cascade_downstream(&dag.nodes, &goto_targets);
+    let reset_targets: HashSet<String> = goto_targets.iter().cloned().chain(cascade).collect();
+
+    for target in &reset_targets {
         sqlx::query(
             "UPDATE tasks SET status = 'pending', started_at = NULL, finished_at = NULL \
              WHERE workflow_id = ? AND node_key = ?",
@@ -97,7 +144,22 @@ pub async fn reject_gate(project_db: &ProjectDb, workflow_id: &str, gate_id: &st
         .bind(target)
         .execute(&project_db.pool)
         .await?;
+
+        if let Some(downstream_gate_id) = dag.nodes.iter().find(|n| &n.id == target).and_then(|n| n.gate.as_deref()) {
+            sqlx::query("UPDATE gates SET status = 'pending', passed_at = NULL WHERE workflow_id = ? AND node_key = ?")
+                .bind(workflow_id)
+                .bind(downstream_gate_id)
+                .execute(&project_db.pool)
+                .await?;
+        }
     }
+
+    opc_audit::record(
+        project_db,
+        LogEvent { input: Some(gate_id), output: comment, ..LogEvent::new(log_kind::REVIEW_DECISION, log_outcome::DENIED) },
+    )
+    .await
+    .map_err(Error::Audit)?;
 
     Ok(())
 }

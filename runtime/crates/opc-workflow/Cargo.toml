@@ -12,6 +12,7 @@ opc-provider = { path = "../opc-provider" }
 opc-agent = { path = "../opc-agent" }
 opc-tool = { path = "../opc-tool" }
 opc-project = { path = "../opc-project" }
+opc-audit = { path = "../opc-audit" }
 sqlx = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

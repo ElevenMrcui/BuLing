@@ -9,6 +9,7 @@ description = "不令 OPC Agent 层 · 岗位定义加载 / 播种 app.sqlite / 
 [dependencies]
 opc-storage = { path = "../opc-storage" }
 opc-provider = { path = "../opc-provider" }
+opc-privacy = { path = "../opc-privacy" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }

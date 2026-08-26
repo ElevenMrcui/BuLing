@@ -4,15 +4,22 @@
 //! - `human`（评审/Gate）节点**永远不会**被这里自动推进——见 `gate` 模块，
 //!   必须走人工 `approve_gate`/`reject_gate`。这不是"没做完"，是
 //!   评审红线硬约束本身要求的行为。
-//! - `condition` 节点（如模板里的 `qa_gate`，表达式判断 Bug 数量）—— 本版
-//!   没有表达式求值器，节点会一直停在 `pending`，不自动推进。
+//! - `condition` 节点（如模板里的 `qa_gate`）在这里成功跑完一个 Agent 节点
+//!   之后会自动尝试求值推进，见 `crate::condition`。
 //! - `manual` / `auto-claim` 节点（如 `frontend_dev` 手动指派/能力池认领）——
 //!   本版不解析 `assigned_agent_id`，`list_ready_agent_tasks` 天然不会选中。
+//!
+//! 每次调用 `opc_agent::run_task()`（LLM 调用）和 `write_and_register_artifact()`
+//! （文件落盘）都会追加一条 `opc_audit::record()` 审计日志，失败/被隐私哨兵
+//! 拦下也会记（`kind` 分别是 `llm.call` / `tool.file.write` / `privacy.block`）
+//! ——见 `docs/OPC-数据模型.md` §3.12。
 
 use std::collections::HashSet;
 use std::path::Path;
+use std::time::Instant;
 
 use opc_agent::{run_task, AgentDefinition};
+use opc_audit::{kind as log_kind, outcome as log_outcome, LogEvent};
 use opc_provider::ProviderRegistry;
 use opc_storage::ProjectDb;
 use opc_tool::{write_and_register_artifact, RegisterArtifactInput};
@@ -36,7 +43,7 @@ pub struct TaskRow {
 /// 不是字面文件路径——即便 `OneOrMany` 解析后 `path.len() == 1`，也不能当成
 /// 一个真实文件名传给 `write_and_register_artifact`（会真的写出一个字面叫
 /// `frontend/**` 的文件，语义上是错的）。见 `run_task_node` 里的用法。
-fn is_glob_like(path: &str) -> bool {
+pub(crate) fn is_glob_like(path: &str) -> bool {
     path.contains('*') || path.contains('?') || path.contains('[')
 }
 
@@ -125,30 +132,37 @@ pub async fn load_dag(project_db: &ProjectDb, workflow_id: &str) -> Result<Workf
     Ok(serde_json::from_str(&dag_json)?)
 }
 
-/// 纯函数：给定 DAG + 已完成节点集合，算出哪些节点的依赖全部满足（不管 kind，
-/// 调用方按需再过滤 `kind=agent`）。
-pub fn ready_node_keys(dag: &WorkflowTemplate, completed: &HashSet<String>) -> Vec<String> {
+/// 纯函数：给定 DAG + 已解决节点集合（完成或被跳过，见 `load_resolved_node_keys`），
+/// 算出哪些节点的依赖全部满足（不管 kind，调用方按需再过滤 `kind=agent`）。
+pub fn ready_node_keys(dag: &WorkflowTemplate, resolved: &HashSet<String>) -> Vec<String> {
     dag.nodes
         .iter()
-        .filter(|n| !completed.contains(&n.id))
-        .filter(|n| n.depends_on.iter().all(|d| completed.contains(d)))
+        .filter(|n| !resolved.contains(&n.id))
+        .filter(|n| n.depends_on.iter().all(|d| resolved.contains(d)))
         .map(|n| n.id.clone())
         .collect()
 }
 
-/// 列出当前可执行的 Agent 节点：`kind=agent` · `assignment=template` ·
-/// 已在实例化时解析出 `assigned_agent_id` · 依赖节点全部 `completed`。
-pub async fn list_ready_agent_tasks(project_db: &ProjectDb, workflow_id: &str) -> Result<Vec<TaskRow>> {
-    let dag = load_dag(project_db, workflow_id).await?;
-
-    let completed_rows: Vec<(String,)> =
-        sqlx::query_as("SELECT node_key FROM tasks WHERE workflow_id = ? AND status = 'completed'")
+/// `depends_on` 检查用的"已解决"集合：`completed`（真的跑完了）**加上**
+/// `cancelled`（`condition` 节点没选中的那个分支，见 `crate::condition`）——
+/// 一个被跳过的分支不该永远堵住依赖它的下游节点，所以两种状态在"依赖是否
+/// 满足"这个问题上是等价的。`opc-task::readiness` 的两处同类查询也复用这个
+/// 函数，不各自重复一份 SQL。
+pub async fn load_resolved_node_keys(project_db: &ProjectDb, workflow_id: &str) -> Result<HashSet<String>> {
+    let rows: Vec<(String,)> =
+        sqlx::query_as("SELECT node_key FROM tasks WHERE workflow_id = ? AND status IN ('completed','cancelled')")
             .bind(workflow_id)
             .fetch_all(&project_db.pool)
             .await?;
-    let completed: HashSet<String> = completed_rows.into_iter().map(|(k,)| k).collect();
+    Ok(rows.into_iter().map(|(k,)| k).collect())
+}
 
-    let ready_keys: HashSet<String> = ready_node_keys(&dag, &completed).into_iter().collect();
+/// 列出当前可执行的 Agent 节点：`kind=agent` · `assignment=template` ·
+/// 已在实例化时解析出 `assigned_agent_id` · 依赖节点全部已解决。
+pub async fn list_ready_agent_tasks(project_db: &ProjectDb, workflow_id: &str) -> Result<Vec<TaskRow>> {
+    let dag = load_dag(project_db, workflow_id).await?;
+    let resolved = load_resolved_node_keys(project_db, workflow_id).await?;
+    let ready_keys: HashSet<String> = ready_node_keys(&dag, &resolved).into_iter().collect();
 
     let rows: Vec<TaskRow> = sqlx::query_as(
         "SELECT id, workflow_id, node_key, kind, role, assignment_mode, assigned_agent_id, status \
@@ -213,7 +227,9 @@ pub async fn run_task_node(
 
     let prompt = build_prompt(project_db, project_root, dag, node).await?;
 
+    let started = Instant::now();
     let run_result = run_task(registry, agent_def, &prompt, 2000).await;
+    let duration_ms = started.elapsed().as_millis() as i64;
     let output = match run_result {
         Ok(o) => o,
         Err(e) => {
@@ -221,9 +237,41 @@ pub async fn run_task_node(
                 .bind(&task.id)
                 .execute(&project_db.pool)
                 .await?;
+            let err_text = e.to_string();
+            let (event_kind, event_result) = if matches!(e, opc_agent::Error::PrivacyBlocked { .. }) {
+                (log_kind::PRIVACY_BLOCK, log_outcome::BLOCKED)
+            } else {
+                (log_kind::LLM_CALL, log_outcome::ERROR)
+            };
+            opc_audit::record(
+                project_db,
+                LogEvent {
+                    task_id: Some(&task.id),
+                    agent_id: Some(&agent_instance_id),
+                    duration_ms: Some(duration_ms),
+                    error: Some(&err_text),
+                    ..LogEvent::new(event_kind, event_result)
+                },
+            )
+            .await
+            .map_err(Error::Audit)?;
             return Err(Error::Agent(e));
         }
     };
+
+    opc_audit::record(
+        project_db,
+        LogEvent {
+            task_id: Some(&task.id),
+            agent_id: Some(&agent_instance_id),
+            provider_id: Some(&output.provider_id),
+            duration_ms: Some(duration_ms),
+            bytes_out: Some(output.response.text.len() as i64),
+            ..LogEvent::new(log_kind::LLM_CALL, log_outcome::OK)
+        },
+    )
+    .await
+    .map_err(Error::Audit)?;
 
     let task_run_id = uuid::Uuid::new_v4().to_string();
     sqlx::query(
@@ -257,6 +305,20 @@ pub async fn run_task_node(
             &output.response.text,
         )
         .await?;
+        opc_audit::record(
+            project_db,
+            LogEvent {
+                task_id: Some(&task.id),
+                task_run_id: Some(&task_run_id),
+                agent_id: Some(&agent_instance_id),
+                tool: Some("fs:write_text_file"),
+                input: Some(path),
+                bytes_out: Some(record.file_bytes),
+                ..LogEvent::new(log_kind::TOOL_FILE_WRITE, log_outcome::OK)
+            },
+        )
+        .await
+        .map_err(Error::Audit)?;
         artifact_ids.push(record.id);
     }
 
@@ -264,6 +326,8 @@ pub async fn run_task_node(
         .bind(&task.id)
         .execute(&project_db.pool)
         .await?;
+
+    crate::condition::advance_condition_nodes(project_db, project_root, dag, &task.workflow_id).await?;
 
     Ok(RunTaskNodeOutput { task_run_id, provider_id: output.provider_id, artifact_ids })
 }

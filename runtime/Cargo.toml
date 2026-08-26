@@ -3,11 +3,13 @@ resolver = "2"
 members = [
     "crates/opc-storage",
     "crates/opc-provider",
+    "crates/opc-privacy",
     "crates/opc-agent",
     "crates/opc-tool",
     "crates/opc-project",
     "crates/opc-workflow",
     "crates/opc-task",
+    "crates/opc-audit",
 ]
 
 [workspace.package]

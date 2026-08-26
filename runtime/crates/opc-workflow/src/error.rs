@@ -23,6 +23,9 @@ pub enum Error {
     #[error("project: {0}")]
     Project(#[from] opc_project::Error),
 
+    #[error("audit: {0}")]
+    Audit(opc_audit::Error),
+
     #[error("template {file}: {reason}")]
     Template { file: String, reason: String },
 
